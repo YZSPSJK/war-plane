@@ -1,0 +1,35 @@
+id: TASK-002
+title: '验证Harness发布脚本可用性'
+status: todo
+priority: P2
+owner: agent-dev
+depends_on: [TASK-001]
+
+context:
+  background: '验证发布流程的稳定性'
+  constraints:
+    - <约束1>
+    - <约束2>
+
+scope:
+  include:
+    - <允许修改的文件或目录>
+  exclude:
+    - <禁止修改的文件或目录>
+
+inputs:
+  - <输入材料1>
+  - <输入材料2>
+
+deliverables:
+  - <交付物1>
+  - <交付物2>
+
+dod:
+  - <完成标准1>
+  - <完成标准2>
+
+handoff_to: agent-integrator
+risk:
+  - <风险1>
+  - <风险2>

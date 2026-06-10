@@ -1,0 +1,47 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/game/game_root.gd" id="1_game_root"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="2_hud"]
+
+[node name="GameRoot" type="Node3D"]
+script = ExtResource("1_game_root")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.888234, -0.459392, 0, 0.414155, 0.800782, -0.432535, 0.198665, 0.384069, 0.901617, 0, 6, 0)
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.978148, -0.207912, 0, 0.207912, 0.978148, 0, 4, 8)
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+current = true
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+size = Vector2(20, 20)
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_ground")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="RootControl" type="Control" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_hud")
+
+[node name="StateLabel" type="Label" parent="HUD/RootControl"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 480.0
+offset_bottom = 72.0
+theme_override_font_sizes/font_size = 28
+text = "State: Boot"
+
+[node name="HintLabel" type="Label" parent="HUD/RootControl"]
+offset_left = 24.0
+offset_top = 72.0
+offset_right = 600.0
+offset_bottom = 120.0
+text = "单指拖动旋转镜头，双击开始/暂停"

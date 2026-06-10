@@ -1,0 +1,35 @@
+id: TASK-XXX
+title: <任务标题>
+status: todo
+priority: P2
+owner: <agent-id>
+depends_on: []
+
+context:
+  background: <背景说明>
+  constraints:
+    - <约束1>
+    - <约束2>
+
+scope:
+  include:
+    - <允许修改的文件或目录>
+  exclude:
+    - <禁止修改的文件或目录>
+
+inputs:
+  - <输入材料1>
+  - <输入材料2>
+
+deliverables:
+  - <交付物1>
+  - <交付物2>
+
+dod:
+  - <完成标准1>
+  - <完成标准2>
+
+handoff_to: <next-agent-id>
+risk:
+  - <风险1>
+  - <风险2>

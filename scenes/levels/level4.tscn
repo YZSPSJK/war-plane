@@ -1,0 +1,212 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/levels/level1.gd" id="1_level1"]
+
+[node name="Level1" type="Node2D"]
+script = ExtResource("1_level1")
+level_id = "level4"
+next_level_scene_path = "res://scenes/levels/level5.tscn"
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Root" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="GameOverPopup" type="Panel" parent="UI/Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -110.0
+offset_right = 220.0
+offset_bottom = 110.0
+
+[node name="VBox" type="VBoxContainer" parent="UI/Root/GameOverPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 26.0
+offset_top = 24.0
+offset_right = -26.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="UI/Root/GameOverPopup/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "您失败了"
+horizontal_alignment = 1
+
+[node name="Desc" type="Label" parent="UI/Root/GameOverPopup/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "请调整策略后再试"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="UI/Root/GameOverPopup/VBox"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "重试一次"
+
+[node name="SelectLevelOnFailButton" type="Button" parent="UI/Root/GameOverPopup/VBox"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "选择关卡"
+
+[node name="VictoryPopup" type="Panel" parent="UI/Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -126.0
+offset_right = 230.0
+offset_bottom = 126.0
+
+[node name="VBox" type="VBoxContainer" parent="UI/Root/VictoryPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 26.0
+offset_top = 22.0
+offset_right = -26.0
+offset_bottom = -22.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="UI/Root/VictoryPopup/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "恭喜过关"
+horizontal_alignment = 1
+
+[node name="NextLevelButton" type="Button" parent="UI/Root/VictoryPopup/VBox"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+text = "下一关"
+
+[node name="SelectLevelButton" type="Button" parent="UI/Root/VictoryPopup/VBox"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+text = "选择关卡"
+
+[node name="TopPanel" type="Panel" parent="UI/Root"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 72.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="TopInfo" type="Label" parent="UI/Root/TopPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 18.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 24
+text = "初始化中..."
+mouse_filter = 2
+
+[node name="MovePanel" type="Panel" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_right = 0.5
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -170.0
+offset_top = -142.0
+offset_right = 170.0
+offset_bottom = -16.0
+mouse_filter = 2
+
+[node name="SwarmHpLabel" type="Label" parent="UI/Root"]
+layout_mode = 0
+offset_left = 400.0
+offset_top = 140.0
+offset_right = 720.0
+offset_bottom = 174.0
+theme_override_font_sizes/font_size = 22
+text = "小怪总血量: 0/0"
+mouse_filter = 2
+
+[node name="SkillPoolHpLabel" type="Label" parent="UI/Root"]
+layout_mode = 0
+offset_left = 68.0
+offset_top = 236.0
+offset_right = 188.0
+offset_bottom = 278.0
+theme_override_font_sizes/font_size = 28
+text = "0"
+mouse_filter = 2
+
+[node name="SkillDropLabel" type="Label" parent="UI/Root"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 28.0
+offset_top = 92.0
+offset_right = 300.0
+offset_bottom = 290.0
+theme_override_font_sizes/font_size = 18
+text = "宝箱技能: 暂无\n已解锁: 0  攻击: 1"
+mouse_filter = 2
+
+[node name="MoveHint" type="Label" parent="UI/Root/MovePanel"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 8.0
+offset_bottom = 34.0
+grow_horizontal = 2
+horizontal_alignment = 1
+text = "移动"
+mouse_filter = 2
+
+[node name="MoveLeft" type="Button" parent="UI/Root/MovePanel"]
+custom_minimum_size = Vector2(132, 72)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -320.0
+offset_top = 38.0
+offset_right = -180.0
+offset_bottom = 110.0
+text = "左"
+
+[node name="MoveRight" type="Button" parent="UI/Root/MovePanel"]
+custom_minimum_size = Vector2(132, 72)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -160.0
+offset_top = 38.0
+offset_right = -20.0
+offset_bottom = 110.0
+text = "右"

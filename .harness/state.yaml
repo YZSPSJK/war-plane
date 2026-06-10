@@ -1,0 +1,20 @@
+board:
+  todo: [TASK-001, TASK-002]
+  in_progress: []
+  blocked: []
+  review: []
+  done: []
+
+tasks:
+  TASK-001:
+    title: '发布任务接入Harness工程化流程'
+    status: todo
+    owner: agent-dev
+    priority: P1
+    file: .harness/tasks/TASK-001.yaml
+  TASK-002:
+    title: '验证Harness发布脚本可用性'
+    status: todo
+    owner: agent-dev
+    priority: P2
+    file: .harness/tasks/TASK-002.yaml

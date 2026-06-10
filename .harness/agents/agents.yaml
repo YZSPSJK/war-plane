@@ -1,0 +1,61 @@
+agents:
+  - id: agent-arch
+    role: 架构与契约
+    owns:
+      - 接口定义
+      - 模块边界
+      - 依赖关系
+      - 任务发布与拆分
+    output:
+      - 接口变更说明
+      - 风险清单
+    workflow:
+      publish:
+        - 创建 tasks/TASK-xxx.yaml
+        - 写入 state.board.todo
+        - 写入 state.tasks 元信息
+
+  - id: agent-dev
+    role: 功能实现
+    owns:
+      - 目标范围内代码实现
+      - 单元级自检
+      - 任务认领与推进
+    output:
+      - 变更文件列表
+      - 已完成 DoD 项
+    workflow:
+      execute:
+        - todo -> in_progress
+        - in_progress -> review
+        - 填写 handoff/HANDOFF-<TASK_ID>.md
+
+  - id: agent-ui
+    role: 交互与界面
+    owns:
+      - 交互流与界面行为
+      - 可用性检查
+      - UI 任务认领与推进
+    output:
+      - 界面变更说明
+      - 交互测试结果
+    workflow:
+      execute:
+        - todo -> in_progress
+        - in_progress -> review
+        - 填写 handoff/HANDOFF-<TASK_ID>.md
+
+  - id: agent-integrator
+    role: 集成与验收
+    owns:
+      - 跨模块联调
+      - 回归验证
+      - 发布结论
+      - 关单与回退决策
+    output:
+      - 集成报告
+      - 阻塞项与建议
+    workflow:
+      accept:
+        - review -> done（验收通过）
+        - review -> in_progress/blocked（验收未通过）
