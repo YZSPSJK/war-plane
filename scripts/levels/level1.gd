@@ -10,6 +10,21 @@ const HERO_FRAME_SOURCES := [
 ]
 const HERO_FRAME_COUNT := 3
 const HERO_ANIM_FPS := 10.0
+const PIXEL_ASSET_PATHS := {
+	"basic_bolt": "res://assets/pixel_skills/basic_bolt.png",
+	"burn_patch": "res://assets/pixel_skills/burn_patch.png",
+	"chakra_orb": "res://assets/pixel_skills/chakra_orb.png",
+	"earth_wall": "res://assets/pixel_skills/earth_wall.png",
+	"enemy_boss": "res://assets/pixel_skills/enemy_boss.png",
+	"enemy_elite": "res://assets/pixel_skills/enemy_elite.png",
+	"enemy_imp": "res://assets/pixel_skills/enemy_imp.png",
+	"fireball": "res://assets/pixel_skills/fireball.png",
+	"kunai": "res://assets/pixel_skills/kunai.png",
+	"phoenix_ember": "res://assets/pixel_skills/phoenix_ember.png",
+	"shuriken": "res://assets/pixel_skills/shuriken.png",
+	"spent_orb": "res://assets/pixel_skills/spent_orb.png",
+	"swamp_pool": "res://assets/pixel_skills/swamp_pool.png"
+}
 
 @onready var top_info: Label = $UI/Root/TopPanel/TopInfo
 @onready var swarm_hp_label: Label = $UI/Root/SwarmHpLabel
@@ -195,6 +210,7 @@ var _hero_anim_timer := 0.0
 var _hero_anim_last_x := 0.0
 var _hero_face_left := false
 var _hero_texture: Texture2D = null
+var _pixel_textures: Dictionary = {}
 
 
 func _load_balance_config() -> void:
@@ -448,6 +464,7 @@ func _load_skill_values() -> void:
 func _ready() -> void:
 	_rng.randomize()
 	_load_hero_texture()
+	_load_pixel_textures()
 	_load_balance_config()
 	GameManager.start_game()
 	game_over_popup.visible = false
@@ -537,11 +554,54 @@ func _load_hero_texture() -> void:
 		_hero_texture = ImageTexture.create_from_image(image)
 
 
+func _load_pixel_textures() -> void:
+	_pixel_textures.clear()
+	for texture_key in PIXEL_ASSET_PATHS.keys():
+		var image := Image.new()
+		var err := image.load(str(PIXEL_ASSET_PATHS[texture_key]))
+		if err == OK:
+			_pixel_textures[texture_key] = ImageTexture.create_from_image(image)
+
+
+func _draw_texture_centered(texture_key: String, center: Vector2, size: Vector2) -> bool:
+	if not _pixel_textures.has(texture_key):
+		return false
+	var texture: Texture2D = _pixel_textures[texture_key]
+	draw_texture_rect(texture, Rect2(center - size * 0.5, size), false, Color.WHITE)
+	return true
+
+
+func _projectile_texture_key(projectile_type: String) -> String:
+	if projectile_type == "kunai":
+		return "kunai"
+	if projectile_type == "fireball":
+		return "fireball"
+	if projectile_type == "phoenix":
+		return "phoenix_ember"
+	return "basic_bolt"
+
+
+func _projectile_texture_size(projectile_type: String) -> Vector2:
+	if projectile_type == "kunai":
+		return Vector2(18, 18)
+	if projectile_type == "fireball":
+		return Vector2(28, 28)
+	if projectile_type == "phoenix":
+		return Vector2(22, 22)
+	if projectile_type == "clone_basic":
+		return Vector2(14, 14)
+	return Vector2(16, 16)
+
+
 func _draw_clones() -> void:
 	for clone in _clones:
 		var pos: Vector2 = clone["pos"]
 		var rect := Rect2(pos - HERO_SIZE * 0.42, HERO_SIZE * 0.84)
-		draw_rect(rect, Color(0.35, 0.72, 1.0, 0.75), true)
+		if _hero_texture == null:
+			draw_rect(rect, Color(0.35, 0.72, 1.0, 0.75), true)
+		else:
+			var src_rect: Rect2 = HERO_FRAME_SOURCES[_hero_anim_frame]
+			draw_texture_rect_region(_hero_texture, rect, src_rect, Color(0.45, 0.75, 1.0, 0.58), false)
 
 
 func _draw_projectiles() -> void:
@@ -549,6 +609,10 @@ func _draw_projectiles() -> void:
 		var pos: Vector2 = projectile["pos"]
 		var velocity: Vector2 = projectile["velocity"]
 		var type: String = projectile["type"]
+		var texture_key := _projectile_texture_key(type)
+		var texture_size := _projectile_texture_size(type)
+		if _draw_texture_centered(texture_key, pos, texture_size):
+			continue
 		var color := Color.BLACK
 		if type == "kunai":
 			color = Color(0.12, 0.12, 0.12)
@@ -566,14 +630,21 @@ func _draw_projectiles() -> void:
 func _draw_skill_effects() -> void:
 	for area in _shuriken_areas:
 		draw_circle(area["pos"], float(area["radius"]), Color(0.98, 0.72, 0.18, 0.24))
+		_draw_texture_centered("shuriken", area["pos"], Vector2(48, 48))
 	for area in _burn_areas:
-		draw_circle(area["pos"], float(area["radius"]), Color(1.0, 0.48, 0.12, 0.18))
+		if not _draw_texture_centered("burn_patch", area["pos"], Vector2.ONE * float(area["radius"]) * 2.0):
+			draw_circle(area["pos"], float(area["radius"]), Color(1.0, 0.48, 0.12, 0.18))
 	for area in _swamp_areas:
-		draw_circle(area["pos"], float(area["radius"]), Color(0.40, 0.30, 0.12, 0.30))
+		if not _draw_texture_centered("swamp_pool", area["pos"], Vector2.ONE * float(area["radius"]) * 2.0):
+			draw_circle(area["pos"], float(area["radius"]), Color(0.40, 0.30, 0.12, 0.30))
 	for wall in _earth_walls:
 		var rect: Rect2 = wall["rect"]
-		draw_rect(rect, Color(0.56, 0.42, 0.26, 0.78), true)
-		draw_rect(rect, Color(0.25, 0.16, 0.08), false, 2.0)
+		if _pixel_textures.has("earth_wall"):
+			var texture: Texture2D = _pixel_textures["earth_wall"]
+			draw_texture_rect(texture, rect, false, Color.WHITE)
+		else:
+			draw_rect(rect, Color(0.56, 0.42, 0.26, 0.78), true)
+			draw_rect(rect, Color(0.25, 0.16, 0.08), false, 2.0)
 
 
 func _draw_skill_grid() -> void:
@@ -586,19 +657,22 @@ func _draw_skill_grid() -> void:
 		for col in range(SKILL_GRID_COLS):
 			var idx := row * SKILL_GRID_COLS + col
 			var pos := Vector2(left + float(col) * SKILL_CELL_X, top + float(row) * SKILL_CELL_Y)
-			var color := Color(0.98, 0.70, 0.1) if idx < alive_cells else Color(0.80, 0.80, 0.80)
-			draw_circle(pos, SKILL_DOT_RADIUS, color)
+			var texture_key := "chakra_orb" if idx < alive_cells else "spent_orb"
+			if not _draw_texture_centered(texture_key, pos, Vector2(12, 12)):
+				var color := Color(0.98, 0.70, 0.1) if idx < alive_cells else Color(0.80, 0.80, 0.80)
+				draw_circle(pos, SKILL_DOT_RADIUS, color)
 
 
 func _draw_enemy_groups() -> void:
-	_draw_enemy_matrix(_swarm_enemies, SWARM_DOT_RADIUS, Color(0.95, 0.08, 0.08))
-	_draw_enemy_matrix(_elite_enemies, ELITE_DOT_RADIUS, Color(0.84, 0.1, 0.1))
-	_draw_enemy_matrix(_boss_enemies, BOSS_DOT_RADIUS, Color(0.72, 0.02, 0.02))
+	_draw_enemy_matrix(_swarm_enemies, SWARM_DOT_RADIUS, Color(0.95, 0.08, 0.08), "enemy_imp", Vector2(20, 20))
+	_draw_enemy_matrix(_elite_enemies, ELITE_DOT_RADIUS, Color(0.84, 0.1, 0.1), "enemy_elite", Vector2(24, 24))
+	_draw_enemy_matrix(_boss_enemies, BOSS_DOT_RADIUS, Color(0.72, 0.02, 0.02), "enemy_boss", Vector2(34, 34))
 
 
-func _draw_enemy_matrix(enemies: Array[Dictionary], radius: float, color: Color) -> void:
+func _draw_enemy_matrix(enemies: Array[Dictionary], radius: float, color: Color, texture_key: String, texture_size: Vector2) -> void:
 	for enemy in enemies:
-		draw_circle(enemy["pos"], radius, color)
+		if not _draw_texture_centered(texture_key, enemy["pos"], texture_size):
+			draw_circle(enemy["pos"], radius, color)
 
 
 func _refresh_layout_if_needed(force: bool) -> void:

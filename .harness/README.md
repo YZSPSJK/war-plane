@@ -4,6 +4,7 @@
 
 ## 目录说明
 
+- `docs/`：玩法、技能、关卡构造与命中判定等领域文档
 - `state.yaml`：任务全局状态看板
 - `agents/agents.yaml`：角色定义与职责边界
 - `tasks/TASK-template.yaml`：任务卡模板
