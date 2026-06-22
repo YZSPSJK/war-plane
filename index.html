@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#030712">
+    <title>Neon Tower Defense H5</title>
+    <link rel="stylesheet" href="web/styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <canvas id="gameCanvas" aria-label="霓虹塔防游戏画布"></canvas>
+
+      <section class="hud top-hud" aria-label="关卡状态">
+        <div class="hud-line">
+          <strong id="levelName">LEVEL 1</strong>
+          <span id="waveInfo">WAVE 1 / 5</span>
+          <span id="phaseInfo">普通敌人</span>
+        </div>
+        <div class="hud-line compact">
+          <span id="heroInfo">Lv1</span>
+          <span id="killInfo">击杀 0</span>
+          <span id="skillInfo">经验 0 / 8</span>
+        </div>
+      </section>
+
+      <section class="hud side-hud" aria-label="血量状态">
+        <div id="skillPoolInfo">宝箱 180 / 180</div>
+        <div id="enemyHpInfo">敌人 0</div>
+        <div id="dropInfo">金币 0</div>
+      </section>
+
+      <section class="controls" aria-label="移动控制">
+        <button id="moveLeft" type="button" aria-label="向左移动">左</button>
+        <button id="moveRight" type="button" aria-label="向右移动">右</button>
+      </section>
+
+      <dialog id="resultDialog" class="result-dialog">
+        <div class="dialog-panel">
+          <h1 id="resultTitle">通关</h1>
+          <p id="resultText">阶段完成</p>
+          <div class="dialog-actions">
+            <button id="retryButton" type="button">重试</button>
+            <button id="nextButton" type="button">下一关</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="choiceDialog" class="choice-dialog">
+        <div class="choice-panel">
+          <div class="choice-heading">
+            <span id="choiceSource">宝箱奖励</span>
+            <strong id="choiceTitle">选择奖励</strong>
+            <span id="choiceCount">1 / 1</span>
+          </div>
+          <div id="choiceCards" class="choice-cards"></div>
+        </div>
+      </dialog>
+
+      <dialog id="giftDialog" class="gift-dialog">
+        <div class="gift-panel">
+          <div id="celebrationLayer" class="celebration-layer" aria-hidden="true"></div>
+          <div class="gift-heading">
+            <span id="giftSource">宝箱已击碎</span>
+            <strong id="giftTitle">选择一个宝箱</strong>
+            <span id="giftCount">1 / 1</span>
+          </div>
+          <div id="giftItems" class="gift-items"></div>
+        </div>
+      </dialog>
+    </main>
+
+    <script src="web/config.js" defer></script>
+    <script src="web/progress.js" defer></script>
+    <script src="web/rewards.js" defer></script>
+    <script src="web/game.js" defer></script>
+  </body>
+</html>

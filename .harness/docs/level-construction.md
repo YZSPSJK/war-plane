@@ -2,12 +2,15 @@
 
 ## 事实来源
 
+- H5 入口与关卡运行时：`index.html`、`web/game.js`
 - 关卡目录与配置：`scripts/config/level_catalog.gd`
 - 关卡选择界面：`scripts/main/level_select.gd`
 - 基础关卡脚本：`scripts/levels/level1.gd`
 - 体验关扩展脚本：`scripts/levels/level_experience.gd`
 - 进度存档：`scripts/core/level_progress.gd`
 - 关卡场景：`scenes/levels/*.tscn`
+
+当前可运行入口为 H5。Godot 场景关系仍记录旧实现状态；H5 关卡顺序与配置在 `web/game.js` 中维护。
 
 ## 当前关卡顺序
 
@@ -28,7 +31,7 @@
 - `level4`
 - `level5`
 
-这些关卡启用前 5 关技能解锁目标。
+这些关卡在 Godot 旧实现中启用前 5 关技能解锁目标。H5 当前不使用关卡解锁目标，也不使用额外任务技能；成长由宝箱礼物和基础弹幕升级驱动。
 
 ## 场景与脚本关系
 
@@ -50,9 +53,18 @@
 - 通关时由 `LevelProgress.complete_level(level_id)` 推进 `unlocked_level_index`。
 - 重置按钮调用 `LevelProgress.reset_all_progress()` 清除本地进度。
 
+H5 版本使用 `localStorage.neonTowerProgress` 保存关卡进度、金币和角色预留数据，当前通关弹窗提供“下一关”入口。
+
+H5 当前存档字段：
+
+- `unlockedLevelIndex`：已解锁关卡索引。
+- `coins`：死亡或通关结算金币。
+- `selectedCharacter`：当前选中角色，默认 `neon_vanguard`。
+- `characters`：角色拥有、等级和碎片预留结构。
+
 ## 关卡配置字段
 
-每个关卡配置包含：
+Godot 每个关卡配置包含：
 
 - `unlock_focus`：是否要求本关推进技能解锁。
 - `unlock_target_count_min` / `unlock_target_count_max`：本关需要获得的技能数量范围。
@@ -62,6 +74,10 @@
 - `assist_rules`：连续失败后的动态辅助。
 
 ## 当前配置摘要
+
+H5 当前只使用关卡 `hp`、`speed`、`spawn` 三个缩放字段，关卡顺序与 Godot 保持一致。
+
+Godot 旧配置摘要：
 
 | 关卡 | 解锁目标 | 机会波 | HP缩放 | 速度缩放 | 刷怪缩放 |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -104,6 +120,6 @@
 ## 验收关注点
 
 - `level_id` 必须与 `LEVEL_CONFIGS` 和 `LEVEL_ORDER` 完全一致。
-- 前 5 关技能解锁数量不能大于剩余技能池数量。
+- H5 宝箱奖励不依赖前 5 关技能解锁数量；新增关卡时需要确认 HP、速度和刷怪缩放。
 - 体验关接入时，必须确认场景挂载 `level_experience.gd`，并验证救援逻辑不会污染普通关卡失败逻辑。
 - 新增关卡后，关卡选择界面的禁用状态和提示文案要同步。
