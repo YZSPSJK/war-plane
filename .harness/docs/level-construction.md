@@ -31,7 +31,7 @@
 - `level4`
 - `level5`
 
-这些关卡在 Godot 旧实现中启用前 5 关技能解锁目标。H5 当前不使用关卡解锁目标，也不使用额外任务技能；成长由宝箱礼物和基础弹幕升级驱动。
+这些关卡在 Godot 旧实现中启用前 5 关技能解锁目标。H5 当前不使用关卡解锁目标，也不使用额外任务技能；成长由宝箱奖励和基础弹幕升级驱动。
 
 ## 场景与脚本关系
 
@@ -53,14 +53,18 @@
 - 通关时由 `LevelProgress.complete_level(level_id)` 推进 `unlocked_level_index`。
 - 重置按钮调用 `LevelProgress.reset_all_progress()` 清除本地进度。
 
-H5 版本使用 `localStorage.neonTowerProgress` 保存关卡进度、金币和角色预留数据，当前通关弹窗提供“下一关”入口。
+H5 版本使用 `localStorage.neonTowerProgress` 保存关卡进度、金币、抽奖券、角色预留数据、战机拥有状态和战机升级状态，当前通关弹窗提供“下一关”入口。
 
 H5 当前存档字段：
 
 - `unlockedLevelIndex`：已解锁关卡索引。
 - `coins`：死亡或通关结算金币。
+- `drawTickets`：通关获得的抽奖券预留字段，当前战机选择页不再提供抽奖入口。
 - `selectedCharacter`：当前选中角色，默认 `neon_vanguard`。
+- `selectedFighter`：当前选中战机，默认 `basic_fighter`。
 - `characters`：角色拥有、等级和碎片预留结构。
+- `fighters`：战机拥有状态，基础战机默认拥有。
+- `fighterUpgrades`：战机基础参数、命中技能等级和击败技能解锁状态。
 
 ## 关卡配置字段
 

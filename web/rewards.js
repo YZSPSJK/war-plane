@@ -1,67 +1,64 @@
 (function () {
-  const { rarityDefs } = window.NeonConfig;
+  const { balance, rarityDefs, upgradeOptions, fighters } = window.NeonConfig;
+
+  function pickWeighted(items) {
+    const total = items.reduce((sum, item) => sum + Math.max(0, item.weight || 0), 0);
+    let r = Math.random() * total;
+    for (const item of items) {
+      r -= Math.max(0, item.weight || 0);
+      if (r <= 0) return item;
+    }
+    return items[items.length - 1];
+  }
 
   function rollChestChoiceCount() {
-    const r = Math.random();
-    if (r < 0.8) return 1;
-    if (r < 0.95) return 3;
-    return 5;
+    return pickWeighted(balance.chest.rewardCounts).count;
   }
 
   function rollRarity() {
-    const r = Math.random();
-    if (r < rarityDefs.common.weight) return rarityDefs.common;
-    if (r < rarityDefs.common.weight + rarityDefs.rare.weight) return rarityDefs.rare;
-    return rarityDefs.legendary;
+    return pickWeighted(Object.values(rarityDefs));
   }
 
-  const upgradeDefs = [
-    {
-      key: "bulletCount",
-      title: "子弹数量",
-      icon: "icon-bullet-count",
-      desc: (r) => `基础子弹数量 +${Math.ceil(r.power)}。`,
-      apply: (state, r) => { state.upgrades.bulletCount += Math.ceil(r.power); }
-    },
-    {
-      key: "fireRate",
-      title: "子弹射速",
-      icon: "icon-fire-rate",
-      desc: (r) => `射击频率 +${Math.round(10 * r.power)}%。`,
-      apply: (state, r) => { state.upgrades.fireRate += 0.1 * r.power; }
-    },
-    {
-      key: "pierce",
-      title: "子弹穿透",
-      icon: "icon-pierce",
-      desc: (r) => `每发子弹穿透 +${Math.ceil(r.power)}。`,
-      apply: (state, r) => { state.upgrades.pierce += Math.ceil(r.power); }
-    },
-    {
-      key: "damage",
-      title: "子弹伤害",
-      icon: "icon-damage",
-      desc: (r) => `子弹伤害 +${Math.round(18 * r.power)}%。`,
-      apply: (state, r) => { state.upgrades.damage += 0.18 * r.power; }
-    }
-  ];
+  function formatValue(def, value) {
+    if (def.valueType === "percent") return `${Math.round(value * 100)}%`;
+    return `${value}`;
+  }
+
+  function fighterBaseBulletCount(state) {
+    const fighter = fighters.find((item) => item.key === state.selectedFighterId) || fighters[0];
+    const stats = fighter.info && fighter.info.stats ? fighter.info.stats : { bulletCount: 1 };
+    const upgrade = (state.fighterUpgrades && state.fighterUpgrades[fighter.key]) || {};
+    return stats.bulletCount + (upgrade.bulletCount || 0);
+  }
+
+  function upgradeRemaining(def, state) {
+    if (def.stat === "bulletCount") return Math.max(0, balance.upgradeCaps.bulletCount - fighterBaseBulletCount(state) - state.upgrades.bulletCount);
+    if (def.stat === "pierce") return Math.max(0, balance.upgradeCaps.pierce - state.upgrades.pierce);
+    return Infinity;
+  }
+
+  function buildCard(def, rarity, state) {
+    const value = Math.min(def.values[rarity.key], upgradeRemaining(def, state));
+    return {
+      id: `${def.key}:${rarity.key}`,
+      rarity,
+      title: def.title,
+      icon: def.icon,
+      desc: def.desc.replace("{value}", formatValue(def, value)),
+      apply: (targetState) => {
+        targetState.upgrades[def.stat] += Math.min(value, upgradeRemaining(def, targetState));
+      }
+    };
+  }
 
   function generateChoiceCards(state) {
-    const pool = upgradeDefs.map((def) => {
-      const rarity = rollRarity();
-      return {
-        id: `${def.key}:${rarity.label}`,
-        rarity,
-        title: def.title,
-        icon: def.icon,
-        desc: def.desc(rarity),
-        apply: () => def.apply(state, rarity)
-      };
-    });
+    const pool = upgradeOptions.filter((def) => upgradeRemaining(def, state) > 0);
     const picked = [];
     while (picked.length < 3 && pool.length) {
-      const idx = Math.floor(Math.random() * pool.length);
-      picked.push(pool.splice(idx, 1)[0]);
+      const def = pickWeighted(pool);
+      const rarity = rollRarity();
+      picked.push(buildCard(def, rarity, state));
+      pool.splice(pool.indexOf(def), 1);
     }
     return picked;
   }
