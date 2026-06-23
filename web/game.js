@@ -466,8 +466,24 @@
     }
   }
 
-  function spawnProjectile(x, y, vx, vy, damage, pierceLeft = 0) {
-    state.projectiles.push({ x, y, vx, vy, damage, pierceLeft, fighterId: currentFighter().key, travel: 0, hitIds: [] });
+  function spawnProjectile(x, y, vx, vy, damage, pierceLeft = 0, options = {}) {
+    state.projectiles.push({
+      x,
+      y,
+      vx,
+      vy,
+      damage,
+      pierceLeft,
+      fighterId: options.fighterId || currentFighter().key,
+      kind: options.kind || "basic",
+      age: 0,
+      maxAge: options.maxAge || null,
+      hitRadius: options.hitRadius || balance.projectileHitRadius,
+      canTriggerHitEffect: options.canTriggerHitEffect !== false,
+      canTriggerKillEffect: options.canTriggerKillEffect !== false,
+      travel: 0,
+      hitIds: options.hitIds ? options.hitIds.slice() : []
+    });
   }
 
   function updateProjectiles(delta) {
@@ -478,7 +494,9 @@
       const dy = p.vy * delta;
       p.x += dx;
       p.y += dy;
+      p.age = (p.age || 0) + delta;
       p.travel += Math.hypot(dx, dy);
+      if (p.maxAge && p.age >= p.maxAge) continue;
       if (!pointInRect(p, bounds)) continue;
       let consumed = false;
       if (p.travel >= balance.projectileArmDistance) consumed = applyProjectileHit(p);
@@ -511,7 +529,8 @@
   }
 
   function hitEnemySide(projectile) {
-    const candidates = state.enemies.filter((enemy) => !projectile.hitIds.includes(enemy.id) && dist(projectile, enemy) <= balance.projectileHitRadius + enemyRadius(enemy));
+    const hitRadius = projectile.hitRadius || balance.projectileHitRadius;
+    const candidates = state.enemies.filter((enemy) => !projectile.hitIds.includes(enemy.id) && dist(projectile, enemy) <= hitRadius + enemyRadius(enemy));
     if (!candidates.length) return false;
     candidates.sort((a, b) => (a.x === b.x ? b.y - a.y : a.x - b.x));
     const target = candidates[0];
@@ -526,8 +545,8 @@
 
   function applyProjectileImpact(projectile, target) {
     const fighter = fighterMap[projectile.fighterId] || currentFighter();
-    applyFighterHitEffect(fighter, target, projectile.damage);
-    applyDamage(target.id, projectile.damage, { fighterId: fighter.key, triggerKillEffect: true });
+    if (projectile.canTriggerHitEffect) applyFighterHitEffect(fighter, target, projectile.damage);
+    applyDamage(target.id, projectile.damage, { fighterId: fighter.key, triggerKillEffect: projectile.canTriggerKillEffect });
   }
 
   function fighterHitLevel(fighterId) {
@@ -621,6 +640,7 @@
 
   function explodeAt(x, y, damage, ignoredIds = []) {
     burst(x, y, "#ffb238", 8);
+    state.effects.push({ type: "explosion", x, y, radius: fighterEffects.blast.radius, timeLeft: 0.28, duration: 0.28 });
     for (const enemy of state.enemies.slice()) {
       if (ignoredIds.includes(enemy.id) || dist({ x, y }, enemy) > fighterEffects.blast.radius + enemyRadius(enemy)) continue;
       applyDamage(enemy.id, damage, { fighterId: "blast_fighter", triggerKillEffect: false });
@@ -651,9 +671,24 @@
       .sort((a, b) => dist(source, a) - dist(source, b))
       .slice(0, fighterEffects.fission.targets);
     for (const target of targets) {
-      state.effects.push({ type: "split", x1: source.x, y1: source.y, x2: target.x, y2: target.y, timeLeft: 0.18 });
-      applyDamage(target.id, damage, { fighterId: "fission_fighter", triggerKillEffect: false });
+      spawnSplitProjectile(source, target, damage);
     }
+  }
+
+  function spawnSplitProjectile(source, target, damage) {
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const speed = currentBulletSpeed() * 1.12;
+    spawnProjectile(source.x, source.y, (dx / distance) * speed, (dy / distance) * speed, damage, 0, {
+      fighterId: "fission_fighter",
+      kind: "split",
+      maxAge: Math.min(0.42, distance / speed + 0.12),
+      hitRadius: balance.projectileHitRadius + 2,
+      canTriggerHitEffect: false,
+      canTriggerKillEffect: false,
+      hitIds: [source.id]
+    });
   }
 
   function addBlackHole(x, y) {
@@ -1615,6 +1650,30 @@
     ctx.lineWidth = 2;
     for (const p of state.projectiles) {
       const fighter = fighterMap[p.fighterId] || currentFighter();
+      if (p.kind === "split") {
+        const angle = Math.atan2(p.vy, p.vx);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(angle);
+        ctx.fillStyle = fighter.color;
+        ctx.strokeStyle = "#d7ffdd";
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-5, -5);
+        ctx.lineTo(-1, 0);
+        ctx.lineTo(-5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.globalAlpha = 0.34;
+        ctx.beginPath();
+        ctx.moveTo(-6, 0);
+        ctx.lineTo(-18, 0);
+        ctx.stroke();
+        ctx.restore();
+        continue;
+      }
       ctx.strokeStyle = fighter.color;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
@@ -1725,15 +1784,59 @@
 
   function drawAreaEffects() {
     for (const effect of state.effects) {
-      if (effect.type === "lightning" || effect.type === "split") {
+      if (effect.type === "lightning") {
         ctx.globalAlpha = clamp(effect.timeLeft * 6, 0, 1);
-        ctx.strokeStyle = effect.type === "lightning" ? "#b76cff" : "#6dff7d";
-        ctx.lineWidth = effect.type === "lightning" ? 3 : 2;
+        ctx.strokeStyle = "#b76cff";
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(effect.x1, effect.y1);
+        const dx = effect.x2 - effect.x1;
+        const dy = effect.y2 - effect.y1;
+        const length = Math.max(1, Math.hypot(dx, dy));
+        const nx = -dy / length;
+        const ny = dx / length;
+        for (let i = 1; i <= 4; i += 1) {
+          const t = i / 5;
+          const jitter = (i % 2 === 0 ? -1 : 1) * 7;
+          ctx.lineTo(effect.x1 + dx * t + nx * jitter, effect.y1 + dy * t + ny * jitter);
+        }
         ctx.lineTo(effect.x2, effect.y2);
         ctx.stroke();
+        ctx.globalAlpha *= 0.55;
+        ctx.strokeStyle = "#f4fdff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
         ctx.globalAlpha = 1;
+        continue;
+      }
+      if (effect.type === "explosion") {
+        const progress = 1 - effect.timeLeft / effect.duration;
+        const radius = effect.radius * (0.28 + progress * 0.82);
+        const alpha = clamp(effect.timeLeft / effect.duration, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.42;
+        ctx.fillStyle = "#ffb238";
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, radius * 0.72, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = "#fff0a8";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#ff7a3d";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i += 1) {
+          const angle = (Math.PI * 2 * i) / 8 + progress * 0.6;
+          const inner = radius * 0.42;
+          const outer = radius * 0.95;
+          ctx.beginPath();
+          ctx.moveTo(effect.x + Math.cos(angle) * inner, effect.y + Math.sin(angle) * inner);
+          ctx.lineTo(effect.x + Math.cos(angle) * outer, effect.y + Math.sin(angle) * outer);
+          ctx.stroke();
+        }
+        ctx.restore();
         continue;
       }
       if (effect.type === "blackhole") {
