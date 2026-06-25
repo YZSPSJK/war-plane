@@ -3,6 +3,8 @@
   const ctx = canvas.getContext("2d");
   const ui = {
     gameShell: document.querySelector(".game-shell"),
+    shopPage: document.getElementById("shopPage"),
+    shopWallet: document.getElementById("shopWallet"),
     mainMenu: document.getElementById("mainMenu"),
     accountFighter: document.getElementById("accountFighter"),
     accountCoins: document.getElementById("accountCoins"),
@@ -22,15 +24,6 @@
     economyInfo: document.getElementById("economyInfo"),
     fighterButton: document.getElementById("fighterButton"),
     exitGameButton: document.getElementById("exitGameButton"),
-    fighterDialog: document.getElementById("fighterDialog"),
-    fighterSource: document.getElementById("fighterSource"),
-    fighterWallet: document.getElementById("fighterWallet"),
-    fighterTrack: document.getElementById("fighterTrack"),
-    fighterDots: document.getElementById("fighterDots"),
-    fighterPrevButton: document.getElementById("fighterPrevButton"),
-    fighterNextButton: document.getElementById("fighterNextButton"),
-    drawFighterButton: document.getElementById("drawFighterButton"),
-    startFighterButton: document.getElementById("startFighterButton"),
     fighterInfoPage: document.getElementById("fighterInfoPage"),
     fighterInfoSource: document.getElementById("fighterInfoSource"),
     fighterInfoWallet: document.getElementById("fighterInfoWallet"),
@@ -45,8 +38,13 @@
     fighterUpgradeTitle: document.getElementById("fighterUpgradeTitle"),
     fighterUpgradeWallet: document.getElementById("fighterUpgradeWallet"),
     fighterUpgradeTrack: document.getElementById("fighterUpgradeTrack"),
-    fighterUpgradeBackButton: document.getElementById("fighterUpgradeBackButton"),
+    fighterUpgradeSummary: document.getElementById("fighterUpgradeSummary"),
+    fighterUpgradeDots: document.getElementById("fighterUpgradeDots"),
+    fighterUpgradePrevButton: document.getElementById("fighterUpgradePrevButton"),
+    fighterUpgradeNextButton: document.getElementById("fighterUpgradeNextButton"),
     fighterUpgradeResetButton: document.getElementById("fighterUpgradeResetButton"),
+    appTabs: document.getElementById("appTabs"),
+    appTabButtons: Array.from(document.querySelectorAll(".app-tab")),
     moveLeft: document.getElementById("moveLeft"),
     moveRight: document.getElementById("moveRight"),
     dialog: document.getElementById("resultDialog"),
@@ -76,6 +74,7 @@
   const { rollChestChoiceCount, rollRarity, generateChoiceCards } = window.NeonRewards;
   const fighterMap = Object.fromEntries(fighters.map((fighter) => [fighter.key, fighter]));
   const fighterGameImages = new Map();
+  const enemyImages = new Map();
 
   const state = {
     dpr: 1,
@@ -114,9 +113,7 @@
     piercingTargetId: null,
     piercingFireRateBonus: 0,
     piercingRetainNextTarget: false,
-    fighterPreviewIndex: 0,
     fighterInfoIndex: 0,
-    fighterDialogInitial: false,
     shootTimer: 0,
     nextWave: 1,
     activeWave: 1,
@@ -147,6 +144,13 @@
     const image = new Image();
     image.src = fighter.gameImage;
     fighterGameImages.set(fighter.key, image);
+  }
+
+  for (const [key, visual] of Object.entries(balance.enemyVisuals || {})) {
+    if (!visual.image) continue;
+    const image = new Image();
+    image.src = visual.image;
+    enemyImages.set(key, image);
   }
 
   function rect(x, y, w, h) {
@@ -181,10 +185,6 @@
     return Math.max(0, fighters.findIndex((fighter) => fighter.key === fighterId));
   }
 
-  function previewFighter() {
-    return fighters[state.fighterPreviewIndex] || fighters[0];
-  }
-
   function isFighterOwned(progress, fighterId) {
     return !!(progress.fighters && progress.fighters[fighterId] && progress.fighters[fighterId].owned);
   }
@@ -202,7 +202,6 @@
       state.selectedFighterId = "basic_fighter";
     }
     if (previousFighterId !== state.selectedFighterId) resetPiercingMomentum();
-    state.fighterPreviewIndex = fighterIndexById(state.selectedFighterId);
   }
 
   function saveSelectedFighter(fighterId) {
@@ -292,36 +291,49 @@
     return "Boss";
   }
 
+  function enemyVisualKey(phase) {
+    if (phase === 0) return "swarm";
+    if (phase === 1) return "elite";
+    if (phase === 3) return "deathBoss";
+    return "boss";
+  }
+
+  function enemyVisualForPhase(phase) {
+    const key = enemyVisualKey(phase);
+    return (balance.enemyVisuals && balance.enemyVisuals[key]) || { radius: 10, drawSize: 24, color: "#ff335d" };
+  }
+
+  function enemyRadiusForPhase(phase) {
+    return enemyVisualForPhase(phase).radius;
+  }
+
   function activeEnemyRadius() {
-    if (state.phase === 0) return 10;
-    if (state.phase === 1) return 13;
-    if (state.phase === 3) return 34;
-    return 28;
+    return enemyRadiusForPhase(state.phase);
   }
 
   function enemyRadius(enemy) {
-    if (enemy.phase === 0) return 10;
-    if (enemy.phase === 1) return 13;
-    if (enemy.phase === 3) return 34;
-    return 28;
+    return enemyRadiusForPhase(enemy.phase);
   }
 
   function resize() {
-    state.dpr = 1;
-    state.w = window.innerWidth;
-    state.h = window.innerHeight;
-    canvas.width = state.w;
-    canvas.height = state.h;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const viewport = window.visualViewport;
+    state.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    state.w = Math.round(viewport ? viewport.width : window.innerWidth);
+    state.h = Math.round(viewport ? viewport.height : window.innerHeight);
+    canvas.width = Math.max(1, Math.round(state.w * state.dpr));
+    canvas.height = Math.max(1, Math.round(state.h * state.dpr));
+    canvas.style.width = `${state.w}px`;
+    canvas.style.height = `${state.h}px`;
+    ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
     state.backgroundCache = null;
     layoutWorld();
   }
 
   function layoutWorld() {
     const compactHud = state.w <= 620;
-    const topReserved = compactHud ? 190 : 86;
-    const bottomReserved = 56;
-    const sideMargin = state.w * 0.08;
+    const topReserved = compactHud ? clamp(state.h * 0.2, 146, 190) : 86;
+    const bottomReserved = compactHud ? clamp(state.h * 0.08, 54, 76) : 56;
+    const sideMargin = compactHud ? clamp(state.w * 0.055, 14, 28) : state.w * 0.08;
     state.play = rect(sideMargin, topReserved, state.w - sideMargin * 2, state.h - topReserved - bottomReserved);
     const roadWidth = clamp(state.w * 0.12, 28, 54);
     let roadHeight = state.play.h * 0.62;
@@ -390,7 +402,6 @@
     closeDialog(ui.exitDialog);
     closeDialog(ui.choiceDialog);
     closeDialog(ui.giftDialog);
-    closeDialog(ui.fighterDialog);
     updateUi();
   }
 
@@ -410,6 +421,17 @@
     const normalHp = balance.swarmHp * state.configScale.hp;
     const eliteHp = balance.eliteHp * state.configScale.hp;
     startPhase(0, count + eliteCount, normalHp, buildMixedWaveQueue(count, normalHp, eliteCount, eliteHp));
+  }
+
+  function appendWave(wave) {
+    state.activeWave = wave;
+    const count = Math.max(1, balance.waveBaseCount + (wave - 1) * balance.waveCountStep);
+    const eliteCount = balance.eliteCount;
+    const normalHp = balance.swarmHp * state.configScale.hp;
+    const eliteHp = balance.eliteHp * state.configScale.hp;
+    const queue = buildMixedWaveQueue(count, normalHp, eliteCount, eliteHp);
+    state.phaseSpawnLeft += queue.length;
+    state.phaseSpawnQueue.push(...queue);
   }
 
   function startElite() {
@@ -463,13 +485,14 @@
 
   function spawnEnemy() {
     const spawn = state.phaseSpawnQueue.length ? state.phaseSpawnQueue.shift() : { phase: state.phase, hp: state.phaseUnitHp };
-    const radius = spawn.phase === 0 ? 10 : spawn.phase === 1 ? 13 : activeEnemyRadius();
+    const radius = enemyRadiusForPhase(spawn.phase);
+    const visual = enemyVisualForPhase(spawn.phase);
     const isBoss = state.phase >= 2;
     const hp = spawn.phase >= 2 ? spawn.hp : spawn.hp * enemyHpPressureMultiplier();
     state.enemies.push({
       id: state.nextEnemyId++,
       x: isBoss ? state.enemyLane.x + state.enemyLane.w / 2 : rand(state.enemyLane.x + radius + 2, state.enemyLane.x + state.enemyLane.w - radius - 2),
-      y: state.enemyLane.y + radius + 4,
+      y: -Math.max(radius, (visual.drawSize || radius * 2) / 2),
       hp,
       maxHp: hp,
       phase: spawn.phase
@@ -828,7 +851,8 @@
   function updateEnemySpawn(delta) {
     if (state.phaseSpawnLeft <= 0) return;
     state.phaseTimer += delta;
-    const base = state.phase === 0 ? balance.swarmSpawnInterval : balance.eliteSpawnInterval;
+    const nextPhase = state.phaseSpawnQueue.length ? state.phaseSpawnQueue[0].phase : state.phase;
+    const base = nextPhase === 1 ? balance.eliteSpawnInterval : balance.swarmSpawnInterval;
     const interval = state.phase >= 2 ? 0.1 : base / state.configScale.spawn;
     while (state.phaseTimer >= interval && state.phaseSpawnLeft > 0) {
       state.phaseTimer -= interval;
@@ -932,6 +956,11 @@
   }
 
   function checkStageAdvance() {
+    if (state.phase === 0 && state.phaseSpawnLeft <= 0 && state.nextWave <= balance.totalWaves) {
+      appendWave(state.nextWave);
+      state.nextWave += 1;
+      return;
+    }
     if (state.phaseSpawnLeft > 0 || state.enemies.length > 0) return;
     if (state.phase === 0 || state.phase === 1) startNextStage();
     else if (state.phase === 2 && balance.deathBoss.enabled && !state.deathBossSpawned) {
@@ -1105,7 +1134,7 @@
   }
 
   function openExitConfirm() {
-    if (state.gameOver || state.victory || isPageOpen() || ui.dialog.open || ui.choiceDialog.open || ui.giftDialog.open || ui.fighterDialog.open) return;
+    if (state.gameOver || state.victory || isPageOpen() || ui.dialog.open || ui.choiceDialog.open || ui.giftDialog.open) return;
     state.paused = true;
     if (!ui.exitDialog.open) ui.exitDialog.showModal();
   }
@@ -1126,24 +1155,61 @@
   }
 
   function isPageOpen() {
-    return !ui.mainMenu.hidden || !ui.fighterInfoPage.hidden || !ui.fighterUpgradePage.hidden;
+    return !ui.shopPage.hidden || !ui.mainMenu.hidden || !ui.fighterInfoPage.hidden || !ui.fighterUpgradePage.hidden;
   }
 
   function hidePages() {
+    ui.shopPage.hidden = true;
     ui.mainMenu.hidden = true;
     ui.fighterInfoPage.hidden = true;
     ui.fighterUpgradePage.hidden = true;
   }
 
-  function showPage(page) {
+  function pageTabName(page) {
+    if (page === ui.shopPage) return "shop";
+    if (page === ui.mainMenu) return "main";
+    if (page === ui.fighterInfoPage) return "info";
+    if (page === ui.fighterUpgradePage) return "upgrade";
+    return "";
+  }
+
+  function setActiveTab(tabName) {
+    for (const button of ui.appTabButtons) {
+      button.classList.toggle("is-active", button.dataset.tab === tabName);
+    }
+  }
+
+  function showPage(page, tabName = pageTabName(page)) {
     hidePages();
     page.hidden = false;
+    state.paused = true;
+    ui.appTabs.hidden = false;
+    setActiveTab(tabName);
     ui.gameShell.classList.add("is-page-mode");
   }
 
   function closePages() {
     hidePages();
+    ui.appTabs.hidden = true;
+    setActiveTab("");
     ui.gameShell.classList.remove("is-page-mode");
+  }
+
+  function renderShopPage() {
+    const progress = readProgress();
+    ui.shopWallet.textContent = `金币 ${progress.coins || 0}｜券 ${progress.drawTickets || 0}`;
+  }
+
+  function openShopPage() {
+    closeDialog(ui.dialog);
+    closeDialog(ui.exitDialog);
+    closeDialog(ui.choiceDialog);
+    closeDialog(ui.giftDialog);
+    state.paused = true;
+    syncWalletFromProgress();
+    renderShopPage();
+    showPage(ui.shopPage, "shop");
+    updateUi();
   }
 
   function renderMainMenu() {
@@ -1161,14 +1227,13 @@
     closeDialog(ui.exitDialog);
     closeDialog(ui.choiceDialog);
     closeDialog(ui.giftDialog);
-    closeDialog(ui.fighterDialog);
     state.paused = true;
     state.input.left = false;
     state.input.right = false;
     state.input.pointer = false;
     syncWalletFromProgress();
     renderMainMenu();
-    showPage(ui.mainMenu);
+    showPage(ui.mainMenu, "main");
     updateUi();
   }
 
@@ -1177,83 +1242,33 @@
   }
 
   function startFromMainMenu() {
-    closeMainMenu();
-    openFighterDialog(true);
-  }
-
-  function openFighterDialog(initial = false) {
-    if (ui.choiceDialog.open || ui.giftDialog.open || ui.dialog.open || !ui.fighterInfoPage.hidden || !ui.fighterUpgradePage.hidden) return;
-    state.fighterDialogInitial = initial;
-    state.paused = true;
-    syncWalletFromProgress();
-    state.fighterPreviewIndex = fighterIndexById(state.selectedFighterId);
-    renderFighterDialog();
-    if (!ui.fighterDialog.open) ui.fighterDialog.showModal();
-  }
-
-  function renderFighterDialog() {
-    const progress = readProgress();
-    const fighter = previewFighter();
-    const owned = isFighterOwned(progress, fighter.key);
-    const selected = progress.selectedFighter === fighter.key;
-    const canBuy = !owned && (progress.coins || 0) >= fighter.cost;
-    ui.fighterSource.textContent = state.fighterDialogInitial ? "初始选择" : "战机库";
-    ui.fighterWallet.textContent = `金币 ${progress.coins || 0}｜券 ${progress.drawTickets || 0}`;
-    ui.fighterTrack.innerHTML = "";
-    const card = document.createElement("article");
-    card.className = `fighter-card fighter-carousel-card${owned ? "" : " is-locked"}${selected ? " is-selected" : ""}`;
-    card.style.setProperty("--fighter-color", fighter.color);
-    const status = owned ? (selected ? "当前出战" : "已解锁") : `未解锁｜金币 ${fighter.cost}`;
-    const actionText = owned ? "已解锁" : "金币解锁";
-    const fighterImage = fighter.selectImage ? `<img src="${fighter.selectImage}" alt="${fighter.name}">` : `<span class="fighter-orbit"></span><span class="fighter-core"></span><span class="fighter-cockpit"></span><span class="fighter-engine"></span>`;
-    card.innerHTML = `<div class="fighter-ship fighter-ship--${fighter.key}${fighter.selectImage ? " fighter-ship--image" : ""}">${fighterImage}</div><h2>${fighter.name}</h2><p>${fighter.desc}</p><small>${status}</small><button type="button"${owned || !canBuy ? " disabled" : ""}>${actionText}</button>`;
-    card.querySelector("button").addEventListener("click", () => purchaseFighter(fighter.key));
-    ui.fighterTrack.appendChild(card);
-    renderFighterDots();
-    ui.drawFighterButton.textContent = "返回主界面";
-    ui.drawFighterButton.disabled = false;
-    ui.startFighterButton.textContent = owned ? "开始游戏" : `金币 ${fighter.cost} 解锁`;
-    ui.startFighterButton.disabled = !owned && !canBuy;
-  }
-
-  function renderFighterDots() {
-    ui.fighterDots.innerHTML = "";
-    for (let i = 0; i < fighters.length; i += 1) {
-      const dot = document.createElement("button");
-      dot.type = "button";
-      dot.className = i === state.fighterPreviewIndex ? "is-active" : "";
-      dot.setAttribute("aria-label", `查看${fighters[i].name}`);
-      dot.addEventListener("click", () => setFighterPreview(i));
-      ui.fighterDots.appendChild(dot);
-    }
-  }
-
-  function setFighterPreview(index) {
-    state.fighterPreviewIndex = (index + fighters.length) % fighters.length;
-    renderFighterDialog();
+    initLevel(state.levelIndex);
+    closePages();
+    state.paused = false;
     updateUi();
-  }
-
-  function moveFighterPreview(step) {
-    setFighterPreview(state.fighterPreviewIndex + step);
   }
 
   function openFighterInfoDialog() {
     syncWalletFromProgress();
     state.fighterInfoIndex = fighterIndexById(state.selectedFighterId);
     renderFighterInfoDialog();
-    showPage(ui.fighterInfoPage);
+    showPage(ui.fighterInfoPage, "info");
   }
 
   function renderFighterInfoDialog() {
     const progress = readProgress();
     const fighter = fighters[state.fighterInfoIndex] || fighters[0];
     const owned = isFighterOwned(progress, fighter.key);
+    const selected = progress.selectedFighter === fighter.key;
+    const canBuy = !owned && (progress.coins || 0) >= fighter.cost;
     const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp } };
     const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp };
     const status = owned ? "已解锁" : `未解锁｜金币 ${fighter.cost}`;
     ui.fighterInfoWallet.textContent = `金币 ${progress.coins || 0}｜券 ${progress.drawTickets || 0}`;
     ui.fighterInfoSource.textContent = `${state.fighterInfoIndex + 1} / ${fighters.length}`;
+    ui.fighterInfoCloseButton.textContent = owned ? (selected ? "当前出战" : "设为出战") : `金币 ${fighter.cost} 解锁`;
+    ui.fighterInfoCloseButton.disabled = selected || (!owned && !canBuy);
+    ui.fighterUpgradeButton.disabled = !owned;
     ui.fighterInfoTrack.innerHTML = "";
     const card = document.createElement("article");
     card.className = `fighter-card fighter-carousel-card fighter-info-card${owned ? "" : " is-locked"}`;
@@ -1314,18 +1329,30 @@
   }
 
   function openFighterUpgradePage() {
+    syncWalletFromProgress();
     renderFighterUpgradePage();
-    showPage(ui.fighterUpgradePage);
+    showPage(ui.fighterUpgradePage, "upgrade");
   }
 
   function renderFighterUpgradePage() {
     const progress = readProgress();
     const fighter = fighters[state.fighterInfoIndex] || fighters[0];
+    const owned = isFighterOwned(progress, fighter.key);
     const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp } };
     const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp };
     ui.fighterUpgradeSource.textContent = `${state.fighterInfoIndex + 1} / ${fighters.length}`;
     ui.fighterUpgradeTitle.textContent = `${fighter.name}升级`;
     ui.fighterUpgradeWallet.textContent = `金币 ${progress.coins || 0}｜券 ${progress.drawTickets || 0}`;
+    const image = fighter.selectImage ? `<img src="${fighter.selectImage}" alt="${fighter.name}">` : "";
+    ui.fighterUpgradeSummary.style.setProperty("--fighter-color", fighter.color);
+    ui.fighterUpgradeSummary.innerHTML = `
+      <div class="fighter-ship fighter-ship--${fighter.key} fighter-ship--image">${image}</div>
+      <div>
+        <strong>${fighter.name}</strong>
+        <span>${owned ? "已解锁" : `未解锁｜金币 ${fighter.cost}`}</span>
+      </div>
+    `;
+    renderFighterUpgradeDots();
     ui.fighterUpgradeTrack.innerHTML = "";
     for (const item of fighterUpgradeItems(fighter, stats, progress)) {
       const card = document.createElement("article");
@@ -1345,6 +1372,27 @@
       card.querySelector("button").addEventListener("click", () => upgradeFighterItem(fighter.key, item.key));
       ui.fighterUpgradeTrack.appendChild(card);
     }
+  }
+
+  function renderFighterUpgradeDots() {
+    ui.fighterUpgradeDots.innerHTML = "";
+    for (let i = 0; i < fighters.length; i += 1) {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = i === state.fighterInfoIndex ? "is-active" : "";
+      dot.setAttribute("aria-label", `升级${fighters[i].name}`);
+      dot.addEventListener("click", () => setFighterUpgradePreview(i));
+      ui.fighterUpgradeDots.appendChild(dot);
+    }
+  }
+
+  function setFighterUpgradePreview(index) {
+    state.fighterInfoIndex = (index + fighters.length) % fighters.length;
+    renderFighterUpgradePage();
+  }
+
+  function moveFighterUpgradePreview(step) {
+    setFighterUpgradePreview(state.fighterInfoIndex + step);
   }
 
   function fighterUpgradeItems(fighter, stats, progress = readProgress()) {
@@ -1445,6 +1493,7 @@
     }
     renderFighterUpgradePage();
     renderFighterInfoDialog();
+    renderMainMenu();
     updateUi();
   }
 
@@ -1471,6 +1520,7 @@
     }
     renderFighterUpgradePage();
     renderFighterInfoDialog();
+    renderMainMenu();
     updateUi();
   }
 
@@ -1483,23 +1533,28 @@
     progress.fighters[fighterId] = { owned: true };
     writeProgress(progress);
     state.wallet = { coins: progress.coins || 0, drawTickets: progress.drawTickets || 0 };
-    state.fighterPreviewIndex = fighterIndexById(fighterId);
     state.lastReward = `${fighter.name} 已解锁`;
-    renderFighterDialog();
+    renderFighterInfoDialog();
+    renderFighterUpgradePage();
+    renderMainMenu();
     updateUi();
   }
 
-  function startSelectedFighter() {
-    const fighter = previewFighter();
+  function selectOrBuyInfoFighter() {
+    const fighter = fighters[state.fighterInfoIndex] || fighters[0];
     const progress = readProgress();
     if (!isFighterOwned(progress, fighter.key)) {
       purchaseFighter(fighter.key);
       return;
     }
+    if (progress.selectedFighter === fighter.key) return;
     saveSelectedFighter(fighter.key);
-    state.fighterDialogInitial = false;
-    state.paused = false;
-    closeDialog(ui.fighterDialog);
+    state.heroMaxHp = currentHeroMaxHp();
+    state.heroHp = Math.min(state.heroHp, state.heroMaxHp);
+    state.lastReward = `${fighter.name} 已设为出战`;
+    renderFighterInfoDialog();
+    renderFighterUpgradePage();
+    renderMainMenu();
     updateUi();
   }
 
@@ -1542,12 +1597,13 @@
   function drawBackground() {
     if (!state.backgroundCache) {
       state.backgroundCache = document.createElement("canvas");
-      state.backgroundCache.width = state.w;
-      state.backgroundCache.height = state.h;
+      state.backgroundCache.width = Math.max(1, Math.round(state.w * state.dpr));
+      state.backgroundCache.height = Math.max(1, Math.round(state.h * state.dpr));
       const bg = state.backgroundCache.getContext("2d");
+      bg.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
       drawStaticBackground(bg);
     }
-    ctx.drawImage(state.backgroundCache, 0, 0);
+    ctx.drawImage(state.backgroundCache, 0, 0, state.w, state.h);
   }
 
   function drawStaticBackground(targetCtx) {
@@ -1630,7 +1686,7 @@
     drawFighterAura(x, y, size, fighter);
     const image = fighterGameImages.get(fighter.key);
     if (image && image.complete && image.naturalWidth > 0) {
-      const imageSize = size * 1.72;
+      const imageSize = size * 1.58;
       ctx.drawImage(image, x - imageSize / 2, y - imageSize / 2, imageSize, imageSize);
       return;
     }
@@ -1889,23 +1945,10 @@
   function drawEnemies() {
     for (const enemy of state.enemies) {
       const radius = enemyRadius(enemy);
-      const color = enemy.phase === 0 ? "#ff335d" : enemy.phase === 1 ? "#ff7a3d" : enemy.phase === 3 ? "#e7f7ff" : "#b76cff";
-      ctx.strokeStyle = color;
-      ctx.fillStyle = enemy.phase === 3 ? "rgba(231, 247, 255, 0.13)" : enemy.phase === 2 ? "rgba(183, 108, 255, 0.12)" : "rgba(255, 51, 93, 0.1)";
-      ctx.lineWidth = enemy.phase >= 2 ? 4 : 2;
-      if (enemy.phase === 0) {
-        ctx.strokeRect(enemy.x - radius, enemy.y - radius, radius * 2, radius * 2);
-      } else {
-        ctx.beginPath();
-        ctx.moveTo(enemy.x, enemy.y - radius);
-        ctx.lineTo(enemy.x + radius, enemy.y);
-        ctx.lineTo(enemy.x, enemy.y + radius);
-        ctx.lineTo(enemy.x - radius, enemy.y);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        if (enemy.phase >= 2) drawEnemyHp(enemy, radius, color);
-      }
+      const visual = enemyVisualForPhase(enemy.phase);
+      const color = visual.color;
+      drawMeteorEnemy(enemy, radius, visual, color);
+      if (enemy.phase >= 2) drawEnemyHp(enemy, radius, color);
       if (enemy.burnTime > 0) {
         ctx.strokeStyle = "#ff7a3d";
         ctx.lineWidth = 1;
@@ -1919,6 +1962,73 @@
         ctx.stroke();
       }
     }
+  }
+
+  function drawMeteorEnemy(enemy, radius, visual, color) {
+    const image = enemyImages.get(enemyVisualKey(enemy.phase));
+    const drawSize = visual.drawSize || radius * 2.6;
+    const isBoss = enemy.phase >= 2;
+    if (isBoss) drawBossMeteorHalo(enemy, drawSize, color);
+    if (image && image.complete && image.naturalWidth > 0) {
+      const rotation = enemy.phase === 0 ? Math.sin(state.elapsed * 1.5 + enemy.id) * 0.08 : enemy.phase === 1 ? -0.12 : 0;
+      ctx.save();
+      ctx.translate(enemy.x, enemy.y);
+      ctx.rotate(rotation);
+      ctx.shadowColor = color;
+      ctx.shadowBlur = isBoss ? 28 : 8;
+      ctx.drawImage(image, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      ctx.restore();
+      return;
+    }
+    drawMeteorFallback(enemy, radius, color);
+  }
+
+  function drawBossMeteorHalo(enemy, drawSize, color) {
+    const pulse = (Math.sin(state.elapsed * 3.2) + 1) / 2;
+    const haloRadius = drawSize * (0.54 + pulse * 0.05);
+    const gradient = ctx.createRadialGradient(enemy.x, enemy.y, drawSize * 0.16, enemy.x, enemy.y, drawSize * 0.72);
+    gradient.addColorStop(0, "rgba(255, 220, 140, 0.18)");
+    gradient.addColorStop(0.38, "rgba(255, 106, 42, 0.22)");
+    gradient.addColorStop(0.72, "rgba(255, 46, 138, 0.11)");
+    gradient.addColorStop(1, "rgba(255, 46, 138, 0)");
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y, haloRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.44;
+    ctx.lineWidth = enemy.phase === 3 ? 4 : 3;
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y, drawSize * (0.52 + pulse * 0.08), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.18;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(enemy.x, enemy.y + drawSize * 0.33, drawSize * 0.62, drawSize * 0.16, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawMeteorFallback(enemy, radius, color) {
+    ctx.strokeStyle = color;
+    ctx.fillStyle = enemy.phase >= 2 ? "rgba(255, 106, 42, 0.14)" : "rgba(255, 51, 93, 0.1)";
+    ctx.lineWidth = enemy.phase >= 2 ? 4 : 2;
+    if (enemy.phase === 0) {
+      ctx.strokeRect(enemy.x - radius, enemy.y - radius, radius * 2, radius * 2);
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(enemy.x, enemy.y - radius);
+    ctx.lineTo(enemy.x + radius, enemy.y);
+    ctx.lineTo(enemy.x, enemy.y + radius);
+    ctx.lineTo(enemy.x - radius, enemy.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
 
   function drawAreaEffects() {
@@ -2077,7 +2187,6 @@
   function bindInput() {
     bindHold(ui.moveLeft, "left");
     bindHold(ui.moveRight, "right");
-    bindFighterSwipe();
     bindFighterInfoSwipe();
     window.addEventListener("keydown", (event) => {
       if (event.key === "a" || event.key === "A" || event.key === "ArrowLeft") state.input.left = true;
@@ -2106,46 +2215,31 @@
     ui.nextButton.addEventListener("click", () => initLevel(Math.min(state.levelIndex + 1, levelOrder.length - 1)));
     ui.mainStartButton.addEventListener("click", startFromMainMenu);
     ui.fighterInfoButton.addEventListener("click", openFighterInfoDialog);
-    ui.fighterButton.addEventListener("click", () => openFighterDialog(false));
+    ui.fighterButton.addEventListener("click", openFighterInfoDialog);
     ui.exitGameButton.addEventListener("click", openExitConfirm);
+    for (const button of ui.appTabButtons) {
+      button.addEventListener("click", () => {
+        if (button.dataset.tab === "shop") openShopPage();
+        if (button.dataset.tab === "main") openMainMenu();
+        if (button.dataset.tab === "info") openFighterInfoDialog();
+        if (button.dataset.tab === "upgrade") openFighterUpgradePage();
+      });
+    }
     ui.exitCancelButton.addEventListener("click", cancelExitConfirm);
     ui.exitConfirmButton.addEventListener("click", confirmExitGame);
-    ui.drawFighterButton.addEventListener("click", openMainMenu);
-    ui.fighterDialog.addEventListener("cancel", (event) => event.preventDefault());
     ui.exitDialog.addEventListener("cancel", (event) => {
       event.preventDefault();
       cancelExitConfirm();
     });
-    ui.fighterPrevButton.addEventListener("click", () => moveFighterPreview(-1));
-    ui.fighterNextButton.addEventListener("click", () => moveFighterPreview(1));
-    ui.startFighterButton.addEventListener("click", startSelectedFighter);
     ui.fighterInfoPrevButton.addEventListener("click", () => moveFighterInfoPreview(-1));
     ui.fighterInfoNextButton.addEventListener("click", () => moveFighterInfoPreview(1));
-    ui.fighterInfoCloseButton.addEventListener("click", openMainMenu);
+    ui.fighterInfoCloseButton.addEventListener("click", selectOrBuyInfoFighter);
     ui.fighterUpgradeButton.addEventListener("click", openFighterUpgradePage);
-    ui.fighterUpgradeBackButton.addEventListener("click", openFighterInfoDialog);
+    ui.fighterUpgradePrevButton.addEventListener("click", () => moveFighterUpgradePreview(-1));
+    ui.fighterUpgradeNextButton.addEventListener("click", () => moveFighterUpgradePreview(1));
     ui.fighterUpgradeResetButton.addEventListener("click", resetCurrentFighterUpgrade);
     window.addEventListener("resize", resize);
-  }
-
-  function bindFighterSwipe() {
-    let startX = 0;
-    let pointerId = null;
-    ui.fighterTrack.addEventListener("pointerdown", (event) => {
-      pointerId = event.pointerId;
-      startX = event.clientX;
-      ui.fighterTrack.setPointerCapture(pointerId);
-    });
-    ui.fighterTrack.addEventListener("pointerup", (event) => {
-      if (event.pointerId !== pointerId) return;
-      const deltaX = event.clientX - startX;
-      pointerId = null;
-      if (Math.abs(deltaX) < 42) return;
-      moveFighterPreview(deltaX < 0 ? 1 : -1);
-    });
-    ui.fighterTrack.addEventListener("pointercancel", () => {
-      pointerId = null;
-    });
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", resize);
   }
 
   function bindFighterInfoSwipe() {

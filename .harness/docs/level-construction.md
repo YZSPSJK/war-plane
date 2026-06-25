@@ -59,7 +59,7 @@ H5 当前存档字段：
 
 - `unlockedLevelIndex`：已解锁关卡索引。
 - `coins`：死亡或通关结算金币。
-- `drawTickets`：通关获得的抽奖券预留字段，当前战机选择页不再提供抽奖入口。
+- `drawTickets`：通关获得的抽奖券预留字段，当前战机信息页不提供抽奖入口。
 - `selectedCharacter`：当前选中角色，默认 `neon_vanguard`。
 - `selectedFighter`：当前选中战机，默认 `basic_fighter`。
 - `characters`：角色拥有、等级和碎片预留结构。
@@ -79,7 +79,7 @@ Godot 每个关卡配置包含：
 
 ## 当前配置摘要
 
-H5 当前只使用关卡 `hp`、`speed`、`spawn` 三个缩放字段，关卡顺序与 Godot 保持一致。
+H5 当前只使用关卡 `hp`、`speed`、`spawn` 三个缩放字段，关卡顺序与 Godot 保持一致。怪物基础刷怪节奏维护在 `web/config.js`：普通怪间隔 `0.54` 秒，精英怪间隔 `0.78` 秒，各关再通过 `spawn` 缩放提高或放松频率。普通/精英生成队列会连续追加下一波，不等待屏幕清空；Boss 仍等待前置敌人清空后登场。
 
 Godot 旧配置摘要：
 

@@ -19,7 +19,7 @@
 ## H5 文件职责
 
 - `index.html`：页面结构和脚本引用。
-- `web/styles.css`：样式、弹窗、战机选择和宝箱奖励动画。
+- `web/styles.css`：样式、底部菜单、战机页面和宝箱奖励动画。
 - `web/config.js`：关卡、宝箱、战机、奖励数量、技能权重、升级数值与上限、稀有度、经验和死神 Boss 配置。
 - `web/progress.js`：本地存档读写。
 - `web/rewards.js`：奖励宝箱数量、稀有度和基础升级卡池。

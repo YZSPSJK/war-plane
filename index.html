@@ -29,8 +29,22 @@
         <div id="enemyHpInfo">敌人 0</div>
         <div id="dropInfo">金币 0</div>
         <div id="economyInfo">持有金币 0｜抽奖券 0</div>
-        <button id="fighterButton" class="hud-button" type="button">战机库</button>
+        <button id="fighterButton" class="hud-button" type="button">战机信息</button>
         <button id="exitGameButton" class="hud-button danger" type="button">退出游戏</button>
+      </section>
+
+      <section id="shopPage" class="page-view shop-page" aria-label="商城" hidden>
+        <div class="page-panel shop-panel">
+          <div class="page-heading">
+            <span>SHOP</span>
+            <strong>商城</strong>
+            <span id="shopWallet">金币 0｜券 0</span>
+          </div>
+          <div class="shop-coming-soon">
+            <strong>敬请期待</strong>
+            <p>补给、礼包和限时兑换功能正在准备中。</p>
+          </div>
+        </div>
       </section>
 
       <section id="mainMenu" class="main-menu" aria-label="主界面" hidden>
@@ -46,7 +60,7 @@
           </header>
           <div class="main-actions">
             <button id="mainStartButton" type="button">开始游戏</button>
-            <button id="fighterInfoButton" type="button">战机信息</button>
+            <button id="fighterInfoButton" type="button">查看战机</button>
           </div>
         </div>
       </section>
@@ -74,26 +88,6 @@
         </div>
       </dialog>
 
-      <dialog id="fighterDialog" class="fighter-dialog">
-        <div class="fighter-panel">
-          <div class="fighter-heading">
-            <span id="fighterSource">战机选择</span>
-            <strong>选择战机</strong>
-            <span id="fighterWallet">金币 0｜券 0</span>
-          </div>
-          <div id="fighterCarousel" class="fighter-carousel">
-            <button id="fighterPrevButton" class="fighter-nav" type="button" aria-label="上一架战机">‹</button>
-            <div id="fighterTrack" class="fighter-track"></div>
-            <button id="fighterNextButton" class="fighter-nav" type="button" aria-label="下一架战机">›</button>
-          </div>
-          <div id="fighterDots" class="fighter-dots" aria-label="战机位置"></div>
-          <div class="fighter-actions">
-            <button id="drawFighterButton" type="button">返回主界面</button>
-            <button id="startFighterButton" type="button">开始游戏</button>
-          </div>
-        </div>
-      </dialog>
-
       <section id="fighterInfoPage" class="page-view fighter-info-page" aria-label="战机信息" hidden>
         <div class="page-panel fighter-info-panel">
           <div class="page-heading">
@@ -108,7 +102,7 @@
           </div>
           <div id="fighterInfoDots" class="fighter-dots" aria-label="战机信息位置"></div>
           <div class="fighter-actions">
-            <button id="fighterInfoCloseButton" type="button">返回主界面</button>
+            <button id="fighterInfoCloseButton" type="button">设为出战</button>
             <button id="fighterUpgradeButton" type="button">升级</button>
           </div>
         </div>
@@ -116,16 +110,28 @@
 
       <section id="fighterUpgradePage" class="page-view fighter-upgrade-page" aria-label="战机升级" hidden>
         <div class="page-panel fighter-upgrade-panel">
-          <button id="fighterUpgradeBackButton" class="page-back-button" type="button">返回</button>
           <button id="fighterUpgradeResetButton" class="page-reset-button" type="button">重置</button>
           <div class="page-heading">
             <span id="fighterUpgradeSource">升级中心</span>
             <strong id="fighterUpgradeTitle">基础战机</strong>
             <span id="fighterUpgradeWallet">金币 0｜券 0</span>
           </div>
+          <div class="upgrade-fighter-switch">
+            <button id="fighterUpgradePrevButton" class="fighter-nav" type="button" aria-label="上一架战机">‹</button>
+            <div id="fighterUpgradeSummary" class="upgrade-fighter-summary"></div>
+            <button id="fighterUpgradeNextButton" class="fighter-nav" type="button" aria-label="下一架战机">›</button>
+          </div>
+          <div id="fighterUpgradeDots" class="fighter-dots" aria-label="战机升级位置"></div>
           <div id="fighterUpgradeTrack" class="upgrade-grid"></div>
         </div>
       </section>
+
+      <nav id="appTabs" class="app-tabs" aria-label="底部菜单" hidden>
+        <button class="app-tab" type="button" data-tab="shop">商城</button>
+        <button class="app-tab" type="button" data-tab="main">主菜单</button>
+        <button class="app-tab" type="button" data-tab="info">战机信息</button>
+        <button class="app-tab" type="button" data-tab="upgrade">战机强化</button>
+      </nav>
 
       <dialog id="choiceDialog" class="choice-dialog">
         <div class="choice-panel">

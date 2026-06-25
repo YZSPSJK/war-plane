@@ -1,7 +1,7 @@
 (function () {
   window.NeonConfig = {
     balance: {
-      heroSize: 42,
+      heroSize: 34,
       heroSpeed: 330,
       projectileSpeed: 520,
       projectileHitRadius: 11,
@@ -36,11 +36,17 @@
       },
       bossMaxHp: 560,
       swarmFallSpeed: 7.5,
-      eliteFallSpeed: 7.5,
+      eliteFallSpeed: 9,
       bossFallSpeed: 5.7,
-      swarmSpawnInterval: 0.72,
-      eliteSpawnInterval: 1.05,
+      swarmSpawnInterval: 0.54,
+      eliteSpawnInterval: 0.78,
       eliteCount: 8,
+      enemyVisuals: {
+        swarm: { radius: 8, drawSize: 28, image: "assets/meteors/meteor_normal.png", color: "#ff5a3d" },
+        elite: { radius: 10, drawSize: 36, image: "assets/meteors/meteor_elite.png", color: "#ff9a3d" },
+        boss: { radius: 56, drawSize: 230, image: "assets/meteors/meteor_boss.png", color: "#ff6a2a" },
+        deathBoss: { radius: 68, drawSize: 280, image: "assets/meteors/meteor_boss.png", color: "#e7f7ff" }
+      },
       xpByPhase: [1, 6, 40],
       goldByPhase: [1, 6, 45],
       clearGold: 60,
