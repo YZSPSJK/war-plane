@@ -1,7 +1,7 @@
 (function () {
   function defaultProgress() {
     return {
-      coins: 0,
+      coins: 999999,
       drawTickets: 0,
       unlockedLevelIndex: 0,
       selectedCharacter: "neon_vanguard",
@@ -20,14 +20,14 @@
         gravity_fighter: { owned: false }
       },
       fighterUpgrades: {
-        basic_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: true },
-        flame_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: false },
-        frost_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: false },
-        blast_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: false },
-        storm_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: false },
-        piercing_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: false },
-        fission_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: false },
-        gravity_fighter: { damage: 0, fireRate: 0, bulletCount: 0, hit: 0, kill: false }
+        basic_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: true },
+        flame_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: false },
+        frost_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: false },
+        blast_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: false },
+        storm_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: false },
+        piercing_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: false },
+        fission_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: false },
+        gravity_fighter: { damage: 0, fireRate: 0, bulletCount: 0, health: 0, hit: 0, kill: false }
       }
     };
   }

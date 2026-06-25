@@ -33,11 +33,6 @@
         <button id="exitGameButton" class="hud-button danger" type="button">退出游戏</button>
       </section>
 
-      <section class="controls" aria-label="移动控制">
-        <button id="moveLeft" type="button" aria-label="向左移动">左</button>
-        <button id="moveRight" type="button" aria-label="向右移动">右</button>
-      </section>
-
       <section id="mainMenu" class="main-menu" aria-label="主界面" hidden>
         <div class="main-menu-panel">
           <header class="main-account">
@@ -62,6 +57,7 @@
           <p id="resultText">阶段完成</p>
           <div class="dialog-actions">
             <button id="retryButton" type="button">重试</button>
+            <button id="resultHomeButton" type="button">返回主界面</button>
             <button id="nextButton" type="button">下一关</button>
           </div>
         </div>
@@ -121,6 +117,7 @@
       <section id="fighterUpgradePage" class="page-view fighter-upgrade-page" aria-label="战机升级" hidden>
         <div class="page-panel fighter-upgrade-panel">
           <button id="fighterUpgradeBackButton" class="page-back-button" type="button">返回</button>
+          <button id="fighterUpgradeResetButton" class="page-reset-button" type="button">重置</button>
           <div class="page-heading">
             <span id="fighterUpgradeSource">升级中心</span>
             <strong id="fighterUpgradeTitle">基础战机</strong>

@@ -32,6 +32,7 @@
   }
 
   function upgradeRemaining(def, state) {
+    if (!def.stat) return Infinity;
     if (def.stat === "bulletCount") return Math.max(0, balance.upgradeCaps.bulletCount - fighterBaseBulletCount(state) - state.upgrades.bulletCount);
     if (def.stat === "pierce") return Math.max(0, balance.upgradeCaps.pierce - state.upgrades.pierce);
     return Infinity;
@@ -42,17 +43,27 @@
     return {
       id: `${def.key}:${rarity.key}`,
       rarity,
+      value,
       title: def.title,
       icon: def.icon,
       desc: def.desc.replace("{value}", formatValue(def, value)),
       apply: (targetState) => {
+        if (def.effect === "heal") {
+          targetState.heroHp = Math.min(targetState.heroMaxHp, targetState.heroHp + def.values[rarity.key]);
+          return;
+        }
         targetState.upgrades[def.stat] += Math.min(value, upgradeRemaining(def, targetState));
+        if (def.damagePenalty) {
+          targetState.upgrades.damagePenalty = (targetState.upgrades.damagePenalty || 0) + 1;
+        }
       }
     };
   }
 
-  function generateChoiceCards(state) {
-    const pool = upgradeOptions.filter((def) => upgradeRemaining(def, state) > 0);
+  function generateChoiceCards(state, kind = "gift") {
+    const pool = upgradeOptions
+      .filter((def) => !def.rewardKinds || def.rewardKinds.includes(kind))
+      .filter((def) => upgradeRemaining(def, state) > 0);
     const picked = [];
     while (picked.length < 3 && pool.length) {
       const def = pickWeighted(pool);

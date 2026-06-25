@@ -208,7 +208,7 @@ button.is-held {
   z-index: 3;
   bottom: max(20px, env(safe-area-inset-bottom));
   left: 50%;
-  display: grid;
+  display: none;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   width: min(360px, calc(100vw - 40px));
@@ -626,6 +626,21 @@ button.is-held {
   z-index: 2;
   min-width: 72px;
   min-height: 38px;
+  font-size: 14px;
+}
+
+.page-reset-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  min-width: 72px;
+  min-height: 38px;
+  border-color: rgba(255, 209, 102, 0.72);
+  background:
+    linear-gradient(135deg, rgba(255, 178, 56, 0.24) 0 9%, transparent 9%),
+    linear-gradient(180deg, rgba(255, 209, 102, 0.18), rgba(30, 18, 8, 0.9));
+  box-shadow: 0 0 18px rgba(255, 178, 56, 0.28), inset 0 0 16px rgba(255, 209, 102, 0.12);
   font-size: 14px;
 }
 
@@ -1149,13 +1164,16 @@ button.is-held {
   aspect-ratio: 1;
   min-width: 0;
   padding: 12px;
-  border: 0;
+  border: 1px solid rgba(255, 209, 102, 0.52);
+  border-radius: 7px;
   background:
-    radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.34), transparent 12%),
-    linear-gradient(180deg, rgba(255, 178, 56, 0.22), rgba(255, 51, 93, 0.12));
-  box-shadow: 0 0 24px rgba(255, 178, 56, 0.28);
+    radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.42), transparent 13%),
+    linear-gradient(135deg, rgba(39, 246, 255, 0.16) 0 12%, transparent 12%),
+    linear-gradient(180deg, rgba(255, 178, 56, 0.28), rgba(255, 51, 93, 0.16));
+  box-shadow: 0 0 26px rgba(255, 178, 56, 0.28), inset 0 0 18px rgba(255, 255, 255, 0.04);
   color: var(--amber);
   animation: gift-pop 560ms ease-out both;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 
 .gift-item::before {
@@ -1178,10 +1196,12 @@ button.is-held {
   right: 14%;
   top: 0;
   height: 36%;
-  border: 3px solid rgba(255, 178, 56, 0.92);
+  border: 3px solid rgba(255, 209, 102, 0.96);
   border-bottom: 0;
-  border-radius: 16px 16px 3px 3px;
-  background: rgba(255, 178, 56, 0.12);
+  border-radius: 18px 18px 3px 3px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%),
+    rgba(255, 178, 56, 0.18);
   box-shadow: 0 0 18px rgba(255, 178, 56, 0.42);
 }
 
@@ -1192,12 +1212,12 @@ button.is-held {
   right: 4%;
   bottom: 0;
   height: 62%;
-  border: 3px solid rgba(255, 178, 56, 0.94);
+  border: 3px solid rgba(255, 209, 102, 0.96);
   border-radius: 5px;
   background:
-    linear-gradient(90deg, transparent 0 42%, rgba(39, 246, 255, 0.36) 43% 57%, transparent 58%),
-    linear-gradient(180deg, rgba(255, 178, 56, 0.24), rgba(255, 51, 93, 0.12));
-  box-shadow: 0 0 20px rgba(255, 178, 56, 0.38), inset 0 0 16px rgba(255, 178, 56, 0.16);
+    linear-gradient(90deg, rgba(6, 3, 16, 0.32) 0 8%, transparent 8% 40%, rgba(39, 246, 255, 0.36) 40% 60%, transparent 60% 92%, rgba(6, 3, 16, 0.32) 92%),
+    linear-gradient(180deg, rgba(255, 178, 56, 0.34), rgba(255, 51, 93, 0.18));
+  box-shadow: 0 0 20px rgba(255, 178, 56, 0.38), inset 0 0 18px rgba(255, 209, 102, 0.18);
 }
 
 .chest-icon i {
@@ -1442,6 +1462,26 @@ button.is-held {
   background: rgba(3, 8, 18, 0.7);
 }
 
+.icon-heal::before {
+  left: 22px;
+  top: 9px;
+  width: 9px;
+  height: 34px;
+  border-radius: 3px;
+  background: var(--card-color);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+
+.icon-heal::after {
+  left: 9px;
+  top: 22px;
+  width: 34px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--card-color);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+
 .reward-card::before {
   content: none;
 }
@@ -1507,6 +1547,43 @@ button.is-held {
 }
 
 @media (max-width: 620px) {
+  .top-hud {
+    padding: 8px 10px;
+  }
+
+  .hud-line {
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .hud-line.compact {
+    grid-template-columns: 1fr 0.7fr 0.85fr;
+    margin-top: 4px;
+  }
+
+  .side-hud {
+    top: max(82px, calc(env(safe-area-inset-top) + 76px));
+    left: 50%;
+    width: min(640px, calc(100vw - 28px));
+    max-width: none;
+    transform: translateX(-50%);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .side-hud > div {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .side-hud .hud-button {
+    min-height: 32px;
+  }
+
   .main-menu-panel {
     padding: 16px;
   }

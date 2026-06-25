@@ -46,12 +46,14 @@
     fighterUpgradeWallet: document.getElementById("fighterUpgradeWallet"),
     fighterUpgradeTrack: document.getElementById("fighterUpgradeTrack"),
     fighterUpgradeBackButton: document.getElementById("fighterUpgradeBackButton"),
+    fighterUpgradeResetButton: document.getElementById("fighterUpgradeResetButton"),
     moveLeft: document.getElementById("moveLeft"),
     moveRight: document.getElementById("moveRight"),
     dialog: document.getElementById("resultDialog"),
     resultTitle: document.getElementById("resultTitle"),
     resultText: document.getElementById("resultText"),
     retryButton: document.getElementById("retryButton"),
+    resultHomeButton: document.getElementById("resultHomeButton"),
     nextButton: document.getElementById("nextButton"),
     exitDialog: document.getElementById("exitDialog"),
     exitCancelButton: document.getElementById("exitCancelButton"),
@@ -85,6 +87,8 @@
     chestLane: rect(0, 0, 0, 0),
     enemyLane: rect(0, 0, 0, 0),
     hero: { x: 0, y: 0 },
+    heroHp: balance.heroBaseHp,
+    heroMaxHp: balance.heroBaseHp,
     input: { left: false, right: false, pointer: false },
     projectiles: [],
     enemies: [],
@@ -95,7 +99,7 @@
     levelCfg: levelConfigs.level1,
     chestHp: balance.chest.maxHp,
     chestsOpened: 0,
-    upgrades: { bulletCount: 0, fireRate: 0, pierce: 0, damage: 0 },
+    upgrades: { bulletCount: 0, fireRate: 0, pierce: 0, damage: 0, damagePenalty: 0 },
     lastReward: "",
     killCount: 0,
     killsByPhase: [0, 0, 0, 0],
@@ -118,7 +122,10 @@
     activeWave: 1,
     phase: 0,
     phaseSpawnLeft: 0,
+    phaseSpawnQueue: [],
     phaseUnitHp: 1,
+    enemyHpPressureTimer: 0,
+    enemyHpPressureMultiplier: 1,
     phaseTimer: 0,
     nextEnemyId: 1,
     gameOver: false,
@@ -212,6 +219,7 @@
       damage: 0,
       fireRate: 0,
       bulletCount: 0,
+      health: 0,
       hit: 0,
       kill: fighterId === "basic_fighter",
       ...(source[fighterId] || {})
@@ -220,7 +228,7 @@
 
   function currentFighterStats() {
     const fighter = currentFighter();
-    return (fighter.info && fighter.info.stats) || { damage: 1, fireRate: 1, bulletCount: 1 };
+    return (fighter.info && fighter.info.stats) || { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp };
   }
 
   function currentBulletCount() {
@@ -236,11 +244,22 @@
   function currentBulletDamage() {
     const stats = currentFighterStats();
     const fighterUpgrade = normalizedFighterUpgrade(state.selectedFighterId);
-    return balance.heroBaseAttack * stats.damage * (1 + state.upgrades.damage + fighterUpgrade.damage * 0.2);
+    const damagePenalty = Math.pow(0.75, state.upgrades.damagePenalty || 0);
+    return balance.heroBaseAttack * stats.damage * (1 + state.upgrades.damage + fighterUpgrade.damage * 0.2) * damagePenalty;
   }
 
   function currentPierce() {
     return Math.min(balance.upgradeCaps.pierce, state.upgrades.pierce);
+  }
+
+  function currentHeroMaxHp() {
+    const stats = currentFighterStats();
+    const fighterUpgrade = normalizedFighterUpgrade(state.selectedFighterId);
+    return (stats.health || balance.heroBaseHp) + fighterUpgrade.health * balance.heroHpUpgradeStep;
+  }
+
+  function enemyHpPressureMultiplier() {
+    return state.enemyHpPressureMultiplier;
   }
 
   function shootInterval() {
@@ -267,7 +286,7 @@
   }
 
   function phaseName() {
-    if (state.phase === 0) return "普通敌人";
+    if (state.phase === 0) return "混合敌群";
     if (state.phase === 1) return "精英怪";
     if (state.phase === 3) return balance.deathBoss.name;
     return "Boss";
@@ -299,8 +318,9 @@
   }
 
   function layoutWorld() {
-    const topReserved = 86;
-    const bottomReserved = 168;
+    const compactHud = state.w <= 620;
+    const topReserved = compactHud ? 190 : 86;
+    const bottomReserved = 56;
     const sideMargin = state.w * 0.08;
     state.play = rect(sideMargin, topReserved, state.w - sideMargin * 2, state.h - topReserved - bottomReserved);
     const roadWidth = clamp(state.w * 0.12, 28, 54);
@@ -329,9 +349,11 @@
     state.effects = [];
     state.particles = [];
     syncWalletFromProgress();
+    state.heroMaxHp = currentHeroMaxHp();
+    state.heroHp = state.heroMaxHp;
     state.chestsOpened = 0;
     state.chestHp = currentChestMaxHp();
-    state.upgrades = { bulletCount: 0, fireRate: 0, pierce: 0, damage: 0 };
+    state.upgrades = { bulletCount: 0, fireRate: 0, pierce: 0, damage: 0, damagePenalty: 0 };
     resetPiercingMomentum();
     state.lastReward = "";
     state.killCount = 0;
@@ -346,7 +368,10 @@
     state.activeWave = 1;
     state.phase = 0;
     state.phaseSpawnLeft = 0;
+    state.phaseSpawnQueue = [];
     state.phaseUnitHp = 1;
+    state.enemyHpPressureTimer = 0;
+    state.enemyHpPressureMultiplier = 1;
     state.phaseTimer = 0;
     state.nextEnemyId = 1;
     state.gameOver = false;
@@ -381,14 +406,15 @@
   function startWave(wave) {
     state.activeWave = wave;
     const count = Math.max(1, balance.waveBaseCount + (wave - 1) * balance.waveCountStep);
-    const totalHp = (balance.waveBaseHp + (wave - 1) * balance.waveHpStep) * state.configScale.hp;
-    startPhase(0, count, totalHp / count);
+    const eliteCount = balance.eliteCount;
+    const normalHp = balance.swarmHp * state.configScale.hp;
+    const eliteHp = balance.eliteHp * state.configScale.hp;
+    startPhase(0, count + eliteCount, normalHp, buildMixedWaveQueue(count, normalHp, eliteCount, eliteHp));
   }
 
   function startElite() {
     const count = balance.eliteCount;
-    const totalHp = (balance.waveBaseEliteHp + (state.activeWave - 1) * balance.waveEliteHpStep) * state.configScale.hp;
-    startPhase(1, count, totalHp / count);
+    startPhase(1, count, balance.eliteHp * state.configScale.hp);
   }
 
   function startBoss() {
@@ -405,25 +431,65 @@
     burst(state.enemyLane.x + state.enemyLane.w / 2, state.enemyLane.y + 42, "#e7f7ff", 18);
   }
 
-  function startPhase(phase, count, unitHp) {
+  function buildMixedWaveQueue(normalCount, normalHp, eliteCount, eliteHp) {
+    const total = normalCount + eliteCount;
+    const queue = [];
+    let normalPlaced = 0;
+    let elitePlaced = 0;
+    for (let i = 0; i < total; i += 1) {
+      const expectedElite = Math.floor(((i + 1) * eliteCount) / total);
+      if (elitePlaced < eliteCount && expectedElite > elitePlaced) {
+        queue.push({ phase: 1, hp: eliteHp });
+        elitePlaced += 1;
+      } else if (normalPlaced < normalCount) {
+        queue.push({ phase: 0, hp: normalHp });
+        normalPlaced += 1;
+      } else {
+        queue.push({ phase: 1, hp: eliteHp });
+        elitePlaced += 1;
+      }
+    }
+    return queue;
+  }
+
+  function startPhase(phase, count, unitHp, spawnQueue = []) {
     state.phase = phase;
     state.enemies = [];
     state.phaseSpawnLeft = count;
+    state.phaseSpawnQueue = spawnQueue.slice();
     state.phaseUnitHp = unitHp;
     state.phaseTimer = 0;
   }
 
   function spawnEnemy() {
-    const radius = activeEnemyRadius();
+    const spawn = state.phaseSpawnQueue.length ? state.phaseSpawnQueue.shift() : { phase: state.phase, hp: state.phaseUnitHp };
+    const radius = spawn.phase === 0 ? 10 : spawn.phase === 1 ? 13 : activeEnemyRadius();
     const isBoss = state.phase >= 2;
+    const hp = spawn.phase >= 2 ? spawn.hp : spawn.hp * enemyHpPressureMultiplier();
     state.enemies.push({
       id: state.nextEnemyId++,
       x: isBoss ? state.enemyLane.x + state.enemyLane.w / 2 : rand(state.enemyLane.x + radius + 2, state.enemyLane.x + state.enemyLane.w - radius - 2),
       y: state.enemyLane.y + radius + 4,
-      hp: state.phaseUnitHp,
-      maxHp: state.phaseUnitHp,
-      phase: state.phase
+      hp,
+      maxHp: hp,
+      phase: spawn.phase
     });
+  }
+
+  function updateEnemyHpPressure(delta) {
+    const pressure = balance.enemyHpPressure;
+    const currentSwarmHp = balance.swarmHp * state.configScale.hp * state.enemyHpPressureMultiplier;
+    const twoShotDamage = currentBulletDamage() * currentBulletCount() * 2;
+    if (currentSwarmHp <= twoShotDamage) {
+      state.enemyHpPressureTimer += delta;
+      if (state.enemyHpPressureTimer >= pressure.triggerSeconds) {
+        state.enemyHpPressureMultiplier *= pressure.growthMultiplier;
+        state.enemyHpPressureTimer = 0;
+        state.lastReward = "后续怪物血量 +50%";
+      }
+      return;
+    }
+    state.enemyHpPressureTimer = 0;
   }
 
   function update(delta) {
@@ -431,6 +497,7 @@
     state.elapsed += delta;
     if (shouldStartDeathBoss()) startDeathBoss();
     updateHero(delta);
+    updateEnemyHpPressure(delta);
     updateShooting(delta);
     updateEnemySpawn(delta);
     updateProjectiles(delta);
@@ -582,7 +649,7 @@
   }
 
   function gravityKnockbackDistance() {
-    return 24 + fighterHitLevel("gravity_fighter") * 8;
+    return (24 + fighterHitLevel("gravity_fighter") * 8) * fighterEffects.gravity.knockbackScale;
   }
 
   function applyFighterHitEffect(fighter, target, damage) {
@@ -840,18 +907,33 @@
   }
 
   function checkFail() {
-    for (const enemy of state.enemies) {
+    for (const enemy of state.enemies.slice()) {
       if (enemy.y + enemyRadius(enemy) >= state.hero.y || dist(enemy, state.hero) <= balance.heroSize / 2 + enemyRadius(enemy)) {
-        triggerGameOver();
-        return;
+        if (enemy.phase >= 2) {
+          triggerGameOver();
+          return;
+        }
+        state.enemies = state.enemies.filter((item) => item.id !== enemy.id);
+        damageHero(enemy.phase === 1 ? balance.enemyDamage.elite : balance.enemyDamage.swarm, enemy);
+        if (state.gameOver) return;
+        burst(enemy.x, enemy.y, enemy.phase === 1 ? "#ff7a3d" : "#ff335d", 5);
       }
+    }
+  }
+
+  function damageHero(amount, source) {
+    state.heroHp = Math.max(0, state.heroHp - amount);
+    state.lastReward = `战机受损 -${amount}`;
+    burst(state.hero.x, state.hero.y, source.phase === 1 ? "#ff7a3d" : "#ff335d", 8);
+    if (state.heroHp <= 0) {
+      triggerGameOver();
+      return;
     }
   }
 
   function checkStageAdvance() {
     if (state.phaseSpawnLeft > 0 || state.enemies.length > 0) return;
-    if (state.phase === 0) startElite();
-    else if (state.phase === 1) startNextStage();
+    if (state.phase === 0 || state.phase === 1) startNextStage();
     else if (state.phase === 2 && balance.deathBoss.enabled && !state.deathBossSpawned) {
       state.nextWave = 1;
       startNextStage();
@@ -946,7 +1028,7 @@
 
   function openChoice(source, title, kind) {
     state.paused = true;
-    state.choice = { active: true, source, title, kind, cards: generateChoiceCards(state) };
+    state.choice = { active: true, source, title, kind, cards: generateChoiceCards(state, kind) };
     renderChoice();
   }
 
@@ -967,8 +1049,10 @@
   }
 
   function chooseCard(card) {
+    const previousHeroHp = state.heroHp;
     card.apply(state);
     state.lastReward = card.title;
+    if (card.id.startsWith("heal:")) state.lastReward = `${card.title} +${Math.round(state.heroHp - previousHeroHp)}HP`;
     state.choice.active = false;
     closeDialog(ui.choiceDialog);
     if (state.gift.remaining > 0) {
@@ -1015,6 +1099,7 @@
   function showDialog(title, text, victory) {
     ui.resultTitle.textContent = title;
     ui.resultText.textContent = text;
+    ui.resultHomeButton.hidden = victory;
     ui.nextButton.hidden = !victory;
     if (!ui.dialog.open) ui.dialog.showModal();
   }
@@ -1164,8 +1249,8 @@
     const progress = readProgress();
     const fighter = fighters[state.fighterInfoIndex] || fighters[0];
     const owned = isFighterOwned(progress, fighter.key);
-    const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1 } };
-    const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1 };
+    const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp } };
+    const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp };
     const status = owned ? "已解锁" : `未解锁｜金币 ${fighter.cost}`;
     ui.fighterInfoWallet.textContent = `金币 ${progress.coins || 0}｜券 ${progress.drawTickets || 0}`;
     ui.fighterInfoSource.textContent = `${state.fighterInfoIndex + 1} / ${fighters.length}`;
@@ -1178,6 +1263,7 @@
     const damageItem = upgradeItems.find((item) => item.key === "damage");
     const fireRateItem = upgradeItems.find((item) => item.key === "fireRate");
     const bulletCountItem = upgradeItems.find((item) => item.key === "bulletCount");
+    const healthItem = upgradeItems.find((item) => item.key === "health");
     const hitItem = upgradeItems.find((item) => item.key === "hit");
     const killItem = upgradeItems.find((item) => item.key === "kill");
     card.innerHTML = `
@@ -1192,6 +1278,7 @@
         ${statBar("基础攻击", damageItem.currentValue, damageItem.maxValue, damageItem.current, "基础参数")}
         ${statBar("射速", fireRateItem.currentValue, fireRateItem.maxValue, fireRateItem.current, "基础参数")}
         ${statBar("攻击数量", bulletCountItem.currentValue, bulletCountItem.maxValue, bulletCountItem.current, "基础参数")}
+        ${statBar("血量", healthItem.currentValue, healthItem.maxValue, healthItem.current, "基础参数")}
         ${statBar("命中", hitItem.currentValue, hitItem.maxValue, hitItem.current, hitItem.desc)}
         ${statBar("击败", killItem.currentValue, killItem.maxValue, killItem.current, killItem.desc)}
       </div>
@@ -1234,8 +1321,8 @@
   function renderFighterUpgradePage() {
     const progress = readProgress();
     const fighter = fighters[state.fighterInfoIndex] || fighters[0];
-    const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1 } };
-    const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1 };
+    const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp } };
+    const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp };
     ui.fighterUpgradeSource.textContent = `${state.fighterInfoIndex + 1} / ${fighters.length}`;
     ui.fighterUpgradeTitle.textContent = `${fighter.name}升级`;
     ui.fighterUpgradeWallet.textContent = `金币 ${progress.coins || 0}｜券 ${progress.drawTickets || 0}`;
@@ -1265,6 +1352,7 @@
     const damageLevel = Math.min(5, upgrade.damage || 0);
     const fireRateLevel = Math.min(5, upgrade.fireRate || 0);
     const bulletCountLevel = Math.min(3, upgrade.bulletCount || 0);
+    const healthLevel = Math.min(5, upgrade.health || 0);
     const hitLevel = Math.min(5, upgrade.hit || 0);
     const killUnlocked = !!upgrade.kill;
     const damageValue = balance.heroBaseAttack * stats.damage * (1 + damageLevel * 0.2);
@@ -1272,6 +1360,8 @@
     const fireRateValue = (1 / balance.shootInterval) * stats.fireRate * (1 + fireRateLevel * 0.1);
     const nextFireRateValue = (1 / balance.shootInterval) * stats.fireRate * (1 + (fireRateLevel + 1) * 0.1);
     const bulletCountValue = stats.bulletCount + bulletCountLevel;
+    const healthValue = (stats.health || balance.heroBaseHp) + healthLevel * balance.heroHpUpgradeStep;
+    const nextHealthValue = (stats.health || balance.heroBaseHp) + (healthLevel + 1) * balance.heroHpUpgradeStep;
     const hitMap = {
       basic_fighter: hitMetric("攻速强化", 0.1, 0.05, hitLevel, 0.35, "%", "基础伤害，攻击速度提升。"),
       flame_fighter: hitMetric("持续伤害", 0.32, 0.1, hitLevel, 0.82, "%", "命中后附加持续伤害。"),
@@ -1280,7 +1370,7 @@
       storm_fighter: hitMetric("闪电链伤害", 0.55, 0.15, hitLevel, 1.3, "%", "命中后产生闪电链。"),
       piercing_fighter: hitMetric("攻速增幅", 0.18, 0.06, hitLevel, 0.48, "%", "命中增加攻速，切换目标重置。"),
       fission_fighter: hitMetric("分裂子弹伤害", 0.5, 0.15, hitLevel, 1.25, "%", "命中产生一颗分裂子弹。"),
-      gravity_fighter: hitMetric("击退距离", 24, 8, hitLevel, 64, "", "命中产生击退。")
+      gravity_fighter: hitMetric("击退距离", 24 * fighterEffects.gravity.knockbackScale, 8 * fighterEffects.gravity.knockbackScale, hitLevel, 64 * fighterEffects.gravity.knockbackScale, "", "命中产生击退。")
     };
     const killMap = {
       basic_fighter: { title: "击败被动", current: "无", next: "无", currentValue: 0, nextValue: 0, maxValue: 1, desc: "基础战机无额外击败被动。" },
@@ -1300,6 +1390,7 @@
       upgradeItem({ key: "damage", group: "基础参数", title: "基础攻击", current: damageValue.toFixed(1), next: nextDamageValue.toFixed(1), currentValue: damageValue, nextValue: nextDamageValue, maxValue: balance.heroBaseAttack * stats.damage * 2.2, cost: 80 * (damageLevel + 1), level: damageLevel, maxLevel: 5, desc: "提升每发子弹造成的基础伤害。", canUpgrade, coins }),
       upgradeItem({ key: "fireRate", group: "基础参数", title: "射速", current: `${fireRateValue.toFixed(1)}/秒`, next: `${nextFireRateValue.toFixed(1)}/秒`, currentValue: fireRateValue, nextValue: nextFireRateValue, maxValue: (1 / balance.shootInterval) * stats.fireRate * 1.7, cost: 90 * (fireRateLevel + 1), level: fireRateLevel, maxLevel: 5, desc: "缩短射击间隔，提升持续输出。", canUpgrade, coins }),
       upgradeItem({ key: "bulletCount", group: "基础参数", title: "攻击数量", current: `${bulletCountValue}`, next: `${bulletCountValue + 1}`, currentValue: bulletCountValue, nextValue: bulletCountValue + 1, maxValue: stats.bulletCount + 4, cost: 120 * (bulletCountLevel + 1), level: bulletCountLevel, maxLevel: 3, desc: "增加每轮攻击发射数量。", canUpgrade, coins }),
+      upgradeItem({ key: "health", group: "基础参数", title: "血量", current: `${healthValue}`, next: `${nextHealthValue}`, currentValue: healthValue, nextValue: nextHealthValue, maxValue: (stats.health || balance.heroBaseHp) + balance.heroHpUpgradeStep * 5, cost: 100 * (healthLevel + 1), level: healthLevel, maxLevel: 5, desc: "提升战机最大血量。", canUpgrade, coins }),
       upgradeItem({ key: "hit", group: "命中技能", cost: 150 * (hitLevel + 1), level: hitLevel, maxLevel: 5, canUpgrade, coins, ...hit }),
       upgradeItem({ key: "kill", group: "击败技能", cost: fighter.key === "basic_fighter" ? 0 : 240, unlockOnly: true, level: killUnlocked ? 1 : 0, maxLevel: 1, done: killUnlocked, canUpgrade, coins, ...kill })
     ];
@@ -1329,8 +1420,8 @@
     if (!isFighterOwned(progress, fighterId)) return;
     const fighter = fighterMap[fighterId];
     if (!fighter) return;
-    const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1 } };
-    const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1 };
+    const info = fighter.info || { stats: { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp } };
+    const stats = info.stats || { damage: 1, fireRate: 1, bulletCount: 1, health: balance.heroBaseHp };
     const item = fighterUpgradeItems(fighter, stats, progress).find((entry) => entry.key === itemKey);
     if (!item || item.disabled || (progress.coins || 0) < item.cost) return;
     progress.coins -= item.cost;
@@ -1347,6 +1438,37 @@
     }
     writeProgress(progress);
     syncWalletFromProgress();
+    if (fighterId === state.selectedFighterId) {
+      const previousMaxHp = state.heroMaxHp;
+      state.heroMaxHp = currentHeroMaxHp();
+      state.heroHp = Math.min(state.heroMaxHp, state.heroHp + Math.max(0, state.heroMaxHp - previousMaxHp));
+    }
+    renderFighterUpgradePage();
+    renderFighterInfoDialog();
+    updateUi();
+  }
+
+  function resetCurrentFighterUpgrade() {
+    const progress = readProgress();
+    const fighter = fighters[state.fighterInfoIndex] || fighters[0];
+    if (!isFighterOwned(progress, fighter.key)) return;
+    progress.fighterUpgrades = {
+      ...(progress.fighterUpgrades || {}),
+      [fighter.key]: {
+        damage: 0,
+        fireRate: 0,
+        bulletCount: 0,
+        health: 0,
+        hit: 0,
+        kill: fighter.key === "basic_fighter"
+      }
+    };
+    writeProgress(progress);
+    syncWalletFromProgress();
+    if (fighter.key === state.selectedFighterId) {
+      state.heroMaxHp = currentHeroMaxHp();
+      state.heroHp = Math.min(state.heroHp, state.heroMaxHp);
+    }
     renderFighterUpgradePage();
     renderFighterInfoDialog();
     updateUi();
@@ -1684,45 +1806,62 @@
 
   function drawChest() {
     const b = chestBounds();
-    const lidY = b.y + b.h * 0.18;
+    const lidY = b.y + b.h * 0.2;
     const splitY = b.y + b.h * 0.48;
-    const baseY = b.y + b.h * 0.86;
+    const baseY = b.y + b.h * 0.88;
+    drawChestHpBar(b);
+    ctx.save();
+    ctx.shadowColor = "rgba(255, 178, 56, 0.72)";
+    ctx.shadowBlur = 14;
     ctx.lineWidth = 3;
-    ctx.strokeStyle = "#ffb238";
-    ctx.fillStyle = "rgba(255, 178, 56, 0.12)";
+    const bodyFill = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
+    bodyFill.addColorStop(0, "rgba(255, 211, 102, 0.32)");
+    bodyFill.addColorStop(0.52, "rgba(255, 122, 61, 0.24)");
+    bodyFill.addColorStop(1, "rgba(92, 30, 20, 0.68)");
+    ctx.strokeStyle = "#ffd166";
+    ctx.fillStyle = bodyFill;
     ctx.beginPath();
-    ctx.moveTo(b.x + b.w * 0.12, splitY);
+    ctx.moveTo(b.x + b.w * 0.1, splitY);
     ctx.quadraticCurveTo(b.x + b.w * 0.18, lidY, b.x + b.w * 0.5, lidY);
-    ctx.quadraticCurveTo(b.x + b.w * 0.82, lidY, b.x + b.w * 0.88, splitY);
+    ctx.quadraticCurveTo(b.x + b.w * 0.82, lidY, b.x + b.w * 0.9, splitY);
     ctx.lineTo(b.x + b.w * 0.88, baseY);
     ctx.lineTo(b.x + b.w * 0.12, baseY);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255, 51, 93, 0.28)";
+    ctx.fillRect(b.x + b.w * 0.13, splitY + b.h * 0.06, b.w * 0.74, b.h * 0.3);
     ctx.strokeStyle = "rgba(39, 246, 255, 0.75)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(b.x + b.w * 0.12, splitY);
-    ctx.lineTo(b.x + b.w * 0.88, splitY);
+    ctx.moveTo(b.x + b.w * 0.1, splitY);
+    ctx.lineTo(b.x + b.w * 0.9, splitY);
+    ctx.moveTo(b.x + b.w * 0.15, baseY);
+    ctx.lineTo(b.x + b.w * 0.85, baseY);
     ctx.moveTo(b.x + b.w * 0.5, lidY);
     ctx.lineTo(b.x + b.w * 0.5, baseY);
-    ctx.moveTo(b.x + b.w * 0.25, splitY);
-    ctx.lineTo(b.x + b.w * 0.25, baseY);
-    ctx.moveTo(b.x + b.w * 0.75, splitY);
-    ctx.lineTo(b.x + b.w * 0.75, baseY);
+    ctx.moveTo(b.x + b.w * 0.28, splitY + 2);
+    ctx.lineTo(b.x + b.w * 0.2, baseY - 2);
+    ctx.moveTo(b.x + b.w * 0.72, splitY + 2);
+    ctx.lineTo(b.x + b.w * 0.8, baseY - 2);
     ctx.stroke();
-    ctx.fillStyle = "rgba(255, 178, 56, 0.78)";
-    ctx.fillRect(b.x + b.w * 0.42, b.y + b.h * 0.52, b.w * 0.16, b.h * 0.17);
+    ctx.fillStyle = "rgba(255, 209, 102, 0.95)";
+    ctx.fillRect(b.x + b.w * 0.41, b.y + b.h * 0.52, b.w * 0.18, b.h * 0.19);
+    ctx.strokeStyle = "rgba(6, 3, 16, 0.72)";
+    ctx.strokeRect(b.x + b.w * 0.41, b.y + b.h * 0.52, b.w * 0.18, b.h * 0.19);
     ctx.beginPath();
     ctx.arc(b.x + b.w * 0.5, b.y + b.h * 0.61, b.w * 0.035, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.42)";
-    ctx.lineWidth = 1;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.56)";
     ctx.beginPath();
-    ctx.moveTo(b.x + b.w * 0.26, b.y + b.h * 0.34);
-    ctx.quadraticCurveTo(b.x + b.w * 0.5, b.y + b.h * 0.24, b.x + b.w * 0.74, b.y + b.h * 0.34);
-    ctx.stroke();
-    drawChestHpBar(b);
+    ctx.moveTo(b.x + b.w * 0.22, b.y + b.h * 0.38);
+    ctx.quadraticCurveTo(b.x + b.w * 0.5, b.y + b.h * 0.26, b.x + b.w * 0.78, b.y + b.h * 0.38);
+    ctx.lineTo(b.x + b.w * 0.7, b.y + b.h * 0.41);
+    ctx.quadraticCurveTo(b.x + b.w * 0.5, b.y + b.h * 0.34, b.x + b.w * 0.3, b.y + b.h * 0.41);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawChestHpBar(b) {
@@ -1731,7 +1870,7 @@
     const barW = b.w * 0.9;
     const barH = 9;
     const barX = b.x + (b.w - barW) / 2;
-    const barY = b.y + b.h + 16;
+    const barY = b.y - 18;
     ctx.save();
     ctx.fillStyle = "rgba(255, 178, 56, 0.16)";
     ctx.strokeStyle = "rgba(255, 178, 56, 0.72)";
@@ -1765,7 +1904,7 @@
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        drawEnemyHp(enemy, radius, color);
+        if (enemy.phase >= 2) drawEnemyHp(enemy, radius, color);
       }
       if (enemy.burnTime > 0) {
         ctx.strokeStyle = "#ff7a3d";
@@ -1899,7 +2038,7 @@
     ui.levelName.textContent = state.levelCfg.name;
     ui.waveInfo.textContent = state.phase === 3 ? "死神" : state.phase === 2 ? "BOSS" : `WAVE ${state.activeWave} / ${balance.totalWaves}`;
     ui.phaseInfo.textContent = phaseName();
-    ui.heroInfo.textContent = `${fighter.shortName} Lv${state.heroLevel} 弹${currentBulletCount()} 穿${currentPierce()}`;
+    ui.heroInfo.textContent = `${fighter.shortName} Lv${state.heroLevel} HP ${Math.ceil(state.heroHp)}/${Math.ceil(state.heroMaxHp)} 弹${currentBulletCount()} 穿${currentPierce()}`;
     ui.killInfo.textContent = `击杀 ${state.killCount}`;
     ui.skillInfo.textContent = `经验 ${Math.floor(state.xp)} / ${state.xpNeed}`;
     ui.skillPoolInfo.textContent = `宝箱 ${Math.ceil(state.chestHp)} / ${Math.ceil(currentChestMaxHp())}`;
@@ -1920,6 +2059,7 @@
   }
 
   function bindHold(button, key) {
+    if (!button) return;
     const set = (value) => {
       state.input[key] = value;
       button.classList.toggle("is-held", value);
@@ -1959,6 +2099,10 @@
       state.input.pointer = false;
     });
     ui.retryButton.addEventListener("click", () => initLevel(state.levelIndex));
+    ui.resultHomeButton.addEventListener("click", () => {
+      initLevel(state.levelIndex);
+      openMainMenu();
+    });
     ui.nextButton.addEventListener("click", () => initLevel(Math.min(state.levelIndex + 1, levelOrder.length - 1)));
     ui.mainStartButton.addEventListener("click", startFromMainMenu);
     ui.fighterInfoButton.addEventListener("click", openFighterInfoDialog);
@@ -1980,6 +2124,7 @@
     ui.fighterInfoCloseButton.addEventListener("click", openMainMenu);
     ui.fighterUpgradeButton.addEventListener("click", openFighterUpgradePage);
     ui.fighterUpgradeBackButton.addEventListener("click", openFighterInfoDialog);
+    ui.fighterUpgradeResetButton.addEventListener("click", resetCurrentFighterUpgrade);
     window.addEventListener("resize", resize);
   }
 
